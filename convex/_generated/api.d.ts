@@ -15,6 +15,7 @@ import type * as dailyTopics from "../dailyTopics.js";
 import type * as feed from "../feed.js";
 import type * as http from "../http.js";
 import type * as keiki from "../keiki.js";
+import type * as leaderboard from "../leaderboard.js";
 import type * as lib_claude from "../lib/claude.js";
 import type * as links from "../links.js";
 import type * as matching from "../matching.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   feed: typeof feed;
   http: typeof http;
   keiki: typeof keiki;
+  leaderboard: typeof leaderboard;
   "lib/claude": typeof lib_claude;
   links: typeof links;
   matching: typeof matching;
