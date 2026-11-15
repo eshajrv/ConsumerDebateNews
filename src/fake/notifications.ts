@@ -1,9 +1,13 @@
+import { FAKE } from "../config";
 import type { AppNotification, Id } from "../data/types";
 import { changed } from "./store";
 
+const roomLink = (path: string) => (FAKE.rooms ? `practify://room/room_demo${path}` : undefined);
+
 export const fakeNotifications: AppNotification[] = [
-  { _id: "notif_feed", _creationTime: Date.now() - 3 * 3600_000, userId: "", message: "Your feed is ready: 4 topics for today.", link: "practify://", read: false },
-  { _id: "notif_room", _creationTime: Date.now() - 60_000, userId: "", message: "Your room starts in 1 minute.", link: "practify://room/room_demo", read: false },
+  { _id: "notif_feed", _creationTime: Date.now() - 3 * 3600_000, userId: "", message: "Today's feed is ready", link: "practify://home", read: false },
+  { _id: "notif_results", _creationTime: Date.now() - 20 * 60_000, userId: "", message: "Your results are in", link: roomLink("/summary"), read: false },
+  { _id: "notif_room", _creationTime: Date.now() - 60_000, userId: "", message: "Your 8:15 room is starting", link: roomLink(""), read: false },
 ];
 
 export function myNotifications(_args: { userId: Id }): AppNotification[] {

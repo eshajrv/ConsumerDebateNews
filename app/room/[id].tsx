@@ -81,3 +81,5 @@ const styles = StyleSheet.create({
   membersCard: { gap: spacing.md },
   muted: { fontSize: 15, color: colors.muted, textAlign: "center" },
 });
+
+export { RoomErrorBoundary as ErrorBoundary } from "../../src/components/RoomErrorBoundary";

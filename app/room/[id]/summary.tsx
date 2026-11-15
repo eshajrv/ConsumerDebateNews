@@ -144,3 +144,5 @@ const styles = StyleSheet.create({
   error: { fontSize: 14, color: colors.error },
   footer: { padding: spacing.lg, paddingTop: spacing.sm },
 });
+
+export { RoomErrorBoundary as ErrorBoundary } from "../../../src/components/RoomErrorBoundary";

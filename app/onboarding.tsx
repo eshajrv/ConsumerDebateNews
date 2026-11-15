@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../src/components/Button";
 import { Chip } from "../src/components/Chip";
 import { type Interest, type NotifyVia, useOnboard } from "../src/data";
+import { afterOnboarding } from "../src/links";
 import { saveUserId } from "../src/session";
 import { colors, radius, spacing, type } from "../src/theme";
 
@@ -23,6 +24,7 @@ const REACH: { value: NotifyVia; label: string; hint: string }[] = [
 ];
 
 export default function Onboarding() {
+  const { next } = useLocalSearchParams<{ next?: string }>();
   const onboard = useOnboard();
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
@@ -54,7 +56,7 @@ export default function Onboarding() {
         phone: notifyVia === "text" ? phone.trim() : undefined,
       });
       await saveUserId(userId);
-      router.replace("/home");
+      router.replace(afterOnboarding(next));
     } catch {
       setError("Couldn't save that. Check your connection and try again.");
       setSaving(false);
