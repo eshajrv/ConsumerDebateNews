@@ -6,6 +6,7 @@ import { type DataArea, FAKE } from "../config";
 import { useNow } from "../date";
 import * as feed from "../fake/feed";
 import * as leaderboard from "../fake/leaderboard";
+import * as links from "../fake/links";
 import * as notifications from "../fake/notifications";
 import * as rooms from "../fake/rooms";
 import { getVersion, subscribe } from "../fake/store";
@@ -50,6 +51,7 @@ const useSummariesAction = actionHook("summaries");
 const useNotificationsData = dataHook("notifications");
 const useNotificationsAction = actionHook("notifications");
 const useLeaderboardData = dataHook("leaderboard");
+const useLinksAction = actionHook("links");
 
 const BRIDGE_ROOMS_TO_FAKE_SUMMARIES = !FAKE.rooms && FAKE.summaries;
 
@@ -84,9 +86,12 @@ export const useSubmitSummary = () => useSummariesAction(api.summaries.submit, s
 export const useGuessSummary = () => useSummariesAction(api.summaries.guess, summaries.guessSummary);
 export const useRateSummary = () => useSummariesAction(api.summaries.rate, summaries.rateSummary);
 
-export const useMyRank = (userId: Id | null, period: LeaderboardPeriod) =>
-  useLeaderboardData(api.leaderboard.myRank, skipUnless(userId, { userId: userId!, period }), leaderboard.myRank);
-
 export const useNotifications = (userId: Id | null) =>
   useNotificationsData(api.notifications.mine, skipUnless(userId, { userId: userId! }), notifications.myNotifications);
 export const useMarkRead = () => useNotificationsAction(api.notifications.markRead, notifications.markRead);
+
+export const useRedeemLink = () => useLinksAction(api.links.redeem, links.redeem);
+
+export const useLeaderboard = (period: LeaderboardPeriod) => useLeaderboardData(api.leaderboard.top, { period }, leaderboard.top);
+export const useMyRank = (userId: Id | null, period: LeaderboardPeriod) =>
+  useLeaderboardData(api.leaderboard.myRank, skipUnless(userId, { userId: userId!, period }), leaderboard.myRank);

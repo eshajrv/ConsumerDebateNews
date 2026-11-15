@@ -3,6 +3,7 @@ import { makeFunctionReference } from "convex/server";
 import type {
   AppNotification,
   Id,
+  LeaderboardEntry,
   LeaderboardPeriod,
   LiveRoom,
   NextRoom,
@@ -44,11 +45,15 @@ export const api = {
     guess: mutation<{ summaryId: Id; userId: Id; pick: "first" | "second" }, null>("summaries:guess"),
     rate: mutation<{ summaryId: Id; userId: Id; gotMeRating: number }, null>("summaries:rate"),
   },
-  leaderboard: {
-    myRank: query<{ userId: Id; period: LeaderboardPeriod }, number | null>("leaderboard:myRank"),
-  },
   notifications: {
     mine: query<{ userId: Id }, AppNotification[]>("notifications:mine"),
     markRead: mutation<{ notificationId: Id }, null>("notifications:markRead"),
+  },
+  links: {
+    redeem: mutation<{ code: string }, { userId: Id; roomId: Id }>("links:redeem"),
+  },
+  leaderboard: {
+    top: query<{ period: LeaderboardPeriod }, LeaderboardEntry[]>("leaderboard:top"),
+    myRank: query<{ userId: Id; period: LeaderboardPeriod }, LeaderboardEntry | null>("leaderboard:myRank"),
   },
 };

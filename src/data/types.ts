@@ -97,8 +97,6 @@ export type Summary = {
   points?: number;
 };
 
-export type LeaderboardPeriod = "today" | "week";
-
 export type AppNotification = {
   _id: Id<"notifications">;
   _creationTime: number;
@@ -107,6 +105,10 @@ export type AppNotification = {
   link?: string;
   read: boolean;
 };
+
+export type LeaderboardPeriod = "today" | "week";
+
+export type LeaderboardEntry = { rank: number; userId: Id<"users">; name: string; points: number; goodFaithScore: number };
 
 export type OnboardArgs = {
   name: string;

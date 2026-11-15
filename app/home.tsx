@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Bell } from "../src/components/Bell";
 import { SplitBar } from "../src/components/SplitBar";
+import { Trophy } from "../src/components/Trophy";
 import { type Topic, useFeed, useNextRoom, useNotifications, useTopicStats, useUser } from "../src/data";
 import { formatTime, pacificDate } from "../src/date";
 import { clearUserId, useSavedUserId } from "../src/session";
@@ -47,6 +48,7 @@ export default function Home() {
             <Text style={type.label}>{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</Text>
             <Text style={type.question}>{user ? `Good morning, ${user.name}` : "Good morning"}</Text>
           </View>
+          <Trophy onPress={() => router.push("/leaderboard")} />
           <Bell count={unread} onPress={() => router.push("/inbox")} />
         </View>
 

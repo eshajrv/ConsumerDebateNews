@@ -153,6 +153,11 @@ export default function Onboarding() {
             loading={saving}
             onPress={() => (step < 2 ? setStep(step + 1) : finish())}
           />
+          {step === 0 && (
+            <Pressable onPress={() => router.push("/join")} hitSlop={12} style={styles.codeLink}>
+              <Text style={styles.back}>Have a code?</Text>
+            </Pressable>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -182,4 +187,5 @@ const styles = StyleSheet.create({
   optionLabelSelected: { color: colors.accent },
   footer: { padding: spacing.lg, gap: spacing.md },
   error: { fontSize: 15, color: colors.error, textAlign: "center" },
+  codeLink: { alignSelf: "center" },
 });

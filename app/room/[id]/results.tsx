@@ -97,7 +97,7 @@ export default function Results() {
         <View style={styles.stats}>
           <Stat label="Streak" value={`${user.streak} day${user.streak === 1 ? "" : "s"}`} />
           <Stat label="Good faith" value={String(user.goodFaithScore)} delta={goodFaithChange} />
-          <Stat label="Rank today" value={rank ? `#${rank}` : "-"} />
+          <Stat label="Rank today" value={rank ? `#${rank.rank}` : "-"} />
         </View>
 
         {user.insight && (
