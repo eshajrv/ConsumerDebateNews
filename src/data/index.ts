@@ -81,7 +81,8 @@ export const useRoomMessages = (roomId: Id) => useRoomsData(api.rooms.messages, 
 export const useSendMessage = () => useRoomsAction(api.rooms.send, rooms.sendMessage);
 export const useLiveRooms = (topicId?: Id) => useRoomsData(api.rooms.live, topicId ? { topicId } : {}, rooms.liveRooms);
 
-export const useRoomSummaries = (roomId: Id) => useSummariesData(api.summaries.forRoom, { roomId }, summaries.summariesForRoom);
+export const useRoomSummaries = (roomId: Id, userId: Id | null) =>
+  useSummariesData(api.summaries.forRoom, skipUnless(userId, { roomId, userId: userId! }), summaries.summariesForRoom);
 export const useSubmitSummary = () => useSummariesAction(api.summaries.submit, summaries.submitSummary);
 export const useGuessSummary = () => useSummariesAction(api.summaries.guess, summaries.guessSummary);
 export const useRateSummary = () => useSummariesAction(api.summaries.rate, summaries.rateSummary);

@@ -4,7 +4,7 @@ import { ActivityIndicator, Animated, Easing, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../../src/components/Button";
-import { useMyRank, useRoom, useRoomSummaries, useUser } from "../../../src/data";
+import { useMyRank, useRoomSummaries, useUser } from "../../../src/data";
 import { useSavedUserId } from "../../../src/session";
 import { card, colors, radius, spacing, type } from "../../../src/theme";
 
@@ -34,36 +34,35 @@ function Stat({ label, value, delta }: { label: string; value: string; delta?: n
 export default function Results() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = useSavedUserId();
-  const room = useRoom(id);
-  const summaries = useRoomSummaries(id);
+  const data = useRoomSummaries(id, userId);
   const user = useUser(userId);
   const rank = useMyRank(userId, "today");
   const [count] = useState(() => new Animated.Value(0));
   const [shown, setShown] = useState(0);
 
-  const authored = userId ? summaries?.find((s) => s.authorId === userId) : undefined;
-  const rating = authored?.gotMeRating;
-  const points = authored?.points;
+  const authored = data?.summaries.find((s) => s.authorId === userId);
+  const rating = authored?.gotMeRating ?? null;
+  const points = authored?.points ?? null;
 
   useEffect(() => {
-    if (points === undefined) return;
+    if (points === null) return;
     const sub = count.addListener(({ value }) => setShown(Math.round(value)));
     count.setValue(0);
     Animated.timing(count, { toValue: points, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
     return () => count.removeListener(sub);
   }, [points, count]);
 
-  if (!room || !summaries || !userId || !user) {
+  if (!data || !userId || !user) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
-        {room === null ? <Text style={type.body}>Room not found.</Text> : <ActivityIndicator color={colors.accent} />}
+        {data === null ? <Text style={type.body}>Room not found.</Text> : <ActivityIndicator color={colors.accent} />}
       </SafeAreaView>
     );
   }
 
-  const subjectName = room.members.find((m) => m.userId === authored?.aboutUserId)?.name ?? "They";
+  const subjectName = authored?.aboutName || "They";
 
-  if (rating === undefined || points === undefined) {
+  if (rating === null || points === null) {
     return (
       <SafeAreaView style={[styles.safe, styles.center, styles.padded]}>
         <ActivityIndicator color={colors.accent} size="large" />
@@ -82,6 +81,7 @@ export default function Results() {
         <View style={styles.hero}>
           <Text style={styles.points}>+{shown}</Text>
           <Text style={styles.muted}>points for understanding {subjectName}</Text>
+          <Text style={styles.total}>{user.totalPoints ?? 0} points total</Text>
         </View>
 
         <View style={[card, styles.breakdown]}>
@@ -122,6 +122,7 @@ const styles = StyleSheet.create({
   hero: { alignItems: "center", gap: spacing.xs, paddingVertical: spacing.md },
   points: { fontSize: 72, fontWeight: "800", color: colors.accent, fontVariant: ["tabular-nums"] },
   muted: { fontSize: 16, color: colors.muted, textAlign: "center" },
+  total: { fontSize: 15, fontWeight: "700", color: colors.text, marginTop: spacing.xs },
   breakdown: { gap: spacing.sm },
   row: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md },
   rowLabel: { ...type.body, flex: 1 },

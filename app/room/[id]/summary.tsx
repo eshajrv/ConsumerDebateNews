@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../../../src/components/Button";
 import { MiniScale } from "../../../src/components/MiniScale";
 import { useRoom, useRoomSummaries, useSubmitSummary } from "../../../src/data";
+import { errorMessage } from "../../../src/errors";
 import { useSavedUserId } from "../../../src/session";
 import { card, colors, radius, spacing, type } from "../../../src/theme";
 
@@ -15,23 +16,32 @@ export default function HeresWhatIHeard() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = useSavedUserId();
   const room = useRoom(id);
-  const summaries = useRoomSummaries(id);
+  const data = useRoomSummaries(id, userId);
+  const summaries = data?.summaries;
   const submit = useSubmitSummary();
   const [text, setText] = useState("You ");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const submitted = !!userId && !!summaries?.some((s) => s.authorId === userId);
-  const aboutMeReady = !!userId && !!summaries?.some((s) => s.aboutUserId === userId && s.ready);
+  const submitted = !!summaries?.some((s) => s.authorId === userId);
+  const aboutMe = summaries?.find((s) => s.aboutMe);
+  const chatStillOn = room?.status === "waiting" || room?.status === "live" || room?.status === "rolled";
+  const next = chatStillOn
+    ? `/room/${id}`
+    : submitted && aboutMe?.ready
+      ? aboutMe.gotMeRating !== null
+        ? `/room/${id}/results`
+        : `/room/${id}/guess`
+      : null;
 
   useEffect(() => {
-    if (submitted && aboutMeReady) router.replace(`/room/${id}/guess`);
-  }, [submitted, aboutMeReady, id]);
+    if (next) router.replace(next as `/room/${string}`);
+  }, [next]);
 
-  if (!room || !summaries || !userId) {
+  if (!room || !summaries || !userId || next) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
-        {room === null ? <Text style={type.body}>Room not found.</Text> : <ActivityIndicator color={colors.accent} />}
+        {room === null || data === null ? <Text style={type.body}>Room not found.</Text> : <ActivityIndicator color={colors.accent} />}
       </SafeAreaView>
     );
   }
@@ -69,8 +79,8 @@ export default function HeresWhatIHeard() {
     setError(null);
     try {
       await submit({ roomId: id, authorId: userId, text: text.trim() });
-    } catch {
-      setError("That didn't send. Try again.");
+    } catch (e) {
+      setError(errorMessage(e, "That didn't send. Try again."));
     } finally {
       setSending(false);
     }
