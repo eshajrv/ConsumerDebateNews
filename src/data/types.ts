@@ -1,4 +1,4 @@
-// Shapes returned by convex/ (users.get, feed.forUser, rooms.*, dailyTopics.stats).
+// Shapes returned by convex/ (users.get, feed.forUser, rooms.*, dailyTopics.stats, notifications.*, leaderboard.*).
 // Id<"table"> documents which table an id belongs to; on the wire every id is a string.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export type Id<Table extends string = string> = string;
@@ -118,9 +118,16 @@ export type AppNotification = {
   read: boolean;
 };
 
+// notifications.mine: newest first (max 50)
+export type Inbox = { notifications: AppNotification[]; unreadCount: number };
+
 export type LeaderboardPeriod = "today" | "week";
 
-export type LeaderboardEntry = { rank: number; userId: Id<"users">; name: string; points: number; goodFaithScore: number };
+// leaderboard.top: points summed from dailyPoints over the period's Pacific dates; ties share a rank
+export type LeaderboardEntry = { rank: number; userId: Id<"users">; name: string; points: number };
+
+// leaderboard.myRank: rank is null until the user has points in the period
+export type MyRank = { rank: number | null; points: number };
 
 export type OnboardArgs = {
   name: string;

@@ -2,7 +2,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "../src/components/BackButton";
-import { type AppNotification, useMarkRead, useNotifications } from "../src/data";
+import { type AppNotification, useMarkAllRead, useMarkRead, useNotifications } from "../src/data";
 import { formatTime } from "../src/date";
 import { openLink } from "../src/links";
 import { useSavedUserId } from "../src/session";
@@ -18,8 +18,9 @@ function when(ms: number) {
 
 export default function Inbox() {
   const userId = useSavedUserId();
-  const notifications = useNotifications(userId);
+  const inbox = useNotifications(userId);
   const markRead = useMarkRead();
+  const markAllRead = useMarkAllRead();
 
   async function open(n: AppNotification) {
     if (!n.read) await markRead({ notificationId: n._id });
@@ -31,12 +32,19 @@ export default function Inbox() {
       <View style={styles.top}>
         <BackButton />
       </View>
-      <Text style={[type.question, styles.title]}>Inbox</Text>
-      {notifications === undefined ? (
+      <View style={styles.header}>
+        <Text style={type.question}>Inbox</Text>
+        {userId && inbox && inbox.unreadCount > 0 && (
+          <Pressable onPress={() => markAllRead({ userId })} accessibilityRole="button" hitSlop={8}>
+            <Text style={styles.markAll}>Mark all read</Text>
+          </Pressable>
+        )}
+      </View>
+      {inbox === undefined ? (
         <ActivityIndicator color={colors.accent} style={styles.loading} />
       ) : (
         <FlatList
-          data={notifications}
+          data={inbox.notifications}
           keyExtractor={(n) => n._id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<Text style={styles.empty}>You&apos;re all caught up.</Text>}
@@ -63,7 +71,15 @@ export default function Inbox() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   top: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
-  title: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  markAll: { fontSize: 15, fontWeight: "600", color: colors.accent },
   loading: { marginTop: spacing.xl },
   list: { padding: spacing.lg, gap: spacing.sm },
   empty: { fontSize: 16, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
