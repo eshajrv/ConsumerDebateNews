@@ -17,6 +17,8 @@ export type User = {
   insight?: string;
   phone?: string;
   interests?: string[];
+  knowWell?: string[];
+  wantToLearn?: string[];
   notifyVia?: NotifyVia;
   totalPoints?: number;
 };
@@ -131,7 +133,9 @@ export type MyRank = { rank: number | null; points: number };
 
 export type OnboardArgs = {
   name: string;
-  interests: Interest[];
+  interests?: Interest[]; // kept equal to wantToLearn
+  knowWell: Interest[];
+  wantToLearn: Interest[];
   notifyVia: NotifyVia;
   phone?: string;
 };

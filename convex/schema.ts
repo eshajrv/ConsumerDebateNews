@@ -10,7 +10,9 @@ export default defineSchema({
     lastActiveDate: v.optional(v.string()), // "YYYY-MM-DD" in the user's local time
     insight: v.optional(v.string()), // personal insight from Supermemory, shown on Results
     phone: v.optional(v.string()), // E.164, only for text users; never shown to others
-    interests: v.optional(v.array(v.string())), // "tech" | "politics" | "culture" | "sports" | "campus"
+    interests: v.optional(v.array(v.string())), // "tech" | "politics" | "culture" | "sports" | "campus"; = wantToLearn for new users
+    knowWell: v.optional(v.array(v.string())), // categories the user knows a lot about
+    wantToLearn: v.optional(v.array(v.string())), // categories the user wants to learn more about
     notifyVia: v.optional(v.union(v.literal("app"), v.literal("text"))),
     totalPoints: v.optional(v.number()),
   })

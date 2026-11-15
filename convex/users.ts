@@ -29,14 +29,21 @@ export async function userByPhone(ctx: QueryCtx, phone: string) {
 export const onboard = mutation({
   args: {
     name: v.string(),
-    interests: v.array(v.string()),
+    interests: v.optional(v.array(v.string())), // older clients; new clients send wantToLearn
+    knowWell: v.optional(v.array(v.string())),
+    wantToLearn: v.optional(v.array(v.string())),
     notifyVia: v.union(v.literal("app"), v.literal("text")),
     phone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const name = args.name.trim().slice(0, 30);
     if (!name) throw new ConvexError("Please enter your first name");
-    const interests = [...new Set(args.interests.map((i) => i.trim().toLowerCase()).filter((i) => i))];
+    const clean = (list?: string[]) => [...new Set((list ?? []).map((i) => i.trim().toLowerCase()).filter((i) => i))];
+    // interests stays equal to wantToLearn so Keiki and older code keep working
+    const wantToLearn = clean(args.wantToLearn ?? args.interests);
+    if (wantToLearn.length === 0) throw new ConvexError("Pick at least one thing you want to learn more about");
+    const knowWell = clean(args.knowWell).filter((k) => !wantToLearn.includes(k));
+    const interests = wantToLearn;
 
     let phone: string | undefined;
     if (args.phone?.trim()) {
@@ -48,13 +55,15 @@ export const onboard = mutation({
     if (phone) {
       const existing = await userByPhone(ctx, phone);
       if (existing) {
-        await ctx.db.patch(existing._id, { name, interests, notifyVia: args.notifyVia });
+        await ctx.db.patch(existing._id, { name, interests, knowWell, wantToLearn, notifyVia: args.notifyVia });
         return existing._id;
       }
     }
     return ctx.db.insert("users", {
       name,
       interests,
+      knowWell,
+      wantToLearn,
       notifyVia: args.notifyVia,
       phone,
       goodFaithScore: 50,
