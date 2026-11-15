@@ -16,7 +16,7 @@ export const colors = {
 
 export const radius = { card: 16, pill: 999 };
 
-export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 };
+export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48, screen: 16 };
 
 export const type = {
   question: { fontSize: 24, lineHeight: 30, fontWeight: "700" as const, color: colors.text },

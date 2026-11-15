@@ -60,11 +60,11 @@ export default function WatchLive() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  top: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.xs },
+  top: { paddingHorizontal: spacing.screen, paddingTop: spacing.sm },
+  header: { paddingHorizontal: spacing.screen, paddingTop: spacing.md, gap: spacing.xs },
   muted: { fontSize: 15, color: colors.muted },
   loading: { marginTop: spacing.xl },
-  list: { padding: spacing.lg, gap: spacing.md },
+  list: { padding: spacing.screen, gap: spacing.md },
   empty: { fontSize: 16, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
   card: { gap: spacing.sm, paddingHorizontal: 0 },
   pressed: { opacity: 0.8 },

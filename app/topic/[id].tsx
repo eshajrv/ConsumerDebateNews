@@ -112,14 +112,14 @@ export default function TopicScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   center: { alignItems: "center", justifyContent: "center" },
-  top: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.sm },
-  content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, gap: spacing.md },
+  top: { paddingHorizontal: spacing.screen, paddingTop: spacing.sm, paddingBottom: spacing.sm },
+  content: { paddingHorizontal: spacing.screen, paddingBottom: spacing.xl, gap: spacing.md },
   side: { borderRadius: radius.card, padding: spacing.lg, gap: spacing.sm },
   sideName: { fontSize: 17, fontWeight: "800" },
   sources: { fontSize: 13, color: colors.muted },
   take: { gap: spacing.md, marginTop: spacing.md },
   saved: { fontSize: 14, color: colors.muted },
-  footer: { padding: spacing.lg, paddingTop: spacing.sm, gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
+  footer: { padding: spacing.screen, paddingTop: spacing.sm, gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
   next: { fontSize: 14, color: colors.muted, textAlign: "center" },
   error: { fontSize: 15, color: colors.error, textAlign: "center" },
 });

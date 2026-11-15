@@ -70,18 +70,18 @@ export default function Inbox() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  top: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  top: { paddingHorizontal: spacing.screen, paddingTop: spacing.sm },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.screen,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
   },
   markAll: { fontSize: 15, fontWeight: "600", color: colors.accent },
   loading: { marginTop: spacing.xl },
-  list: { padding: spacing.lg, gap: spacing.sm },
+  list: { padding: spacing.screen, gap: spacing.sm },
   empty: { fontSize: 16, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.md, borderRadius: radius.card, borderWidth: 1, borderColor: colors.border },
   unread: { backgroundColor: colors.accentSoft, borderColor: colors.accentSoft },

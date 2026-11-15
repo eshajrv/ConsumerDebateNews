@@ -47,8 +47,8 @@ export default function Join() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  top: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
-  body: { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, gap: spacing.lg },
+  top: { paddingHorizontal: spacing.screen, paddingTop: spacing.sm },
+  body: { flex: 1, paddingHorizontal: spacing.screen, paddingTop: spacing.xl, gap: spacing.lg },
   hint: { fontSize: 15, lineHeight: 21, color: colors.muted },
   input: {
     fontSize: 40,
@@ -61,6 +61,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     fontVariant: ["tabular-nums"],
   },
-  footer: { padding: spacing.lg, gap: spacing.md },
+  footer: { padding: spacing.screen, gap: spacing.md },
   error: { fontSize: 15, color: colors.error, textAlign: "center" },
 });

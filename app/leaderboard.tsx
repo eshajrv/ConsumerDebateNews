@@ -71,10 +71,10 @@ export default function Leaderboard() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  top: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md },
+  top: { paddingHorizontal: spacing.screen, paddingTop: spacing.sm },
+  header: { paddingHorizontal: spacing.screen, paddingTop: spacing.md, gap: spacing.md },
   tabs: { flexDirection: "row", gap: spacing.sm },
-  list: { padding: spacing.lg },
+  list: { padding: spacing.screen },
   card: { paddingVertical: spacing.sm, paddingHorizontal: spacing.sm },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md, borderRadius: 12 },
   mineRow: { backgroundColor: colors.accentSoft },
@@ -83,5 +83,5 @@ const styles = StyleSheet.create({
   points: { fontSize: 16, fontWeight: "700", color: colors.text, fontVariant: ["tabular-nums"] },
   mineText: { color: colors.accent },
   empty: { fontSize: 16, color: colors.muted, textAlign: "center" },
-  pinned: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background },
+  pinned: { paddingHorizontal: spacing.screen, paddingVertical: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background },
 });

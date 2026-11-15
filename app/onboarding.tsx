@@ -169,9 +169,9 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: spacing.lg, paddingTop: spacing.md, minHeight: 40 },
+  top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: spacing.screen, paddingTop: spacing.md, minHeight: 40 },
   back: { fontSize: 16, fontWeight: "600", color: colors.accent },
-  body: { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, gap: spacing.lg },
+  body: { flex: 1, paddingHorizontal: spacing.screen, paddingTop: spacing.xl, gap: spacing.lg },
   hint: { fontSize: 15, lineHeight: 21, color: colors.muted },
   input: {
     fontSize: 20,
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   optionSelected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   optionLabel: { fontSize: 18, fontWeight: "700", color: colors.text },
   optionLabelSelected: { color: colors.accent },
-  footer: { padding: spacing.lg, gap: spacing.md },
+  footer: { padding: spacing.screen, gap: spacing.md },
   error: { fontSize: 15, color: colors.error, textAlign: "center" },
   codeLink: { alignSelf: "center" },
 });

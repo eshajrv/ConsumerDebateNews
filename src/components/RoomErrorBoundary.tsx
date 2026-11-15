@@ -24,7 +24,7 @@ export function RoomErrorBoundary({ retry }: ErrorBoundaryProps) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  body: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.md, padding: spacing.lg },
+  body: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.md, padding: spacing.screen },
   muted: { fontSize: 16, color: colors.accent, fontWeight: "600" },
-  footer: { padding: spacing.lg },
+  footer: { padding: spacing.screen },
 });

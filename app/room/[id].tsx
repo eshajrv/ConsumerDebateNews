@@ -1,10 +1,10 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Animated, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "../../src/components/BackButton";
-import { MiniScale } from "../../src/components/MiniScale";
+import { dropInDuration, MiniScale } from "../../src/components/MiniScale";
 import { useRoom } from "../../src/data";
 import { formatCountdown, formatTime, useNow } from "../../src/date";
 import { useSavedUserId } from "../../src/session";
@@ -16,17 +16,28 @@ export default function RoomLobby() {
   const room = useRoom(id);
   const now = useNow();
   const [starting] = useState(() => new Animated.Value(0));
+  const [zoom] = useState(() => new Animated.Value(0));
 
   const status = room?.status;
+  const memberCount = room?.members.length ?? 0;
   useEffect(() => {
     if (status === "summarizing" || status === "done") {
       router.replace(`/room/${id}/summary`);
-    } else if (status === "live") {
-      Animated.spring(starting, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
-      const t = setTimeout(() => router.replace(`/room/${id}/chat`), 1400);
-      return () => clearTimeout(t);
+      return;
     }
-  }, [status, id, starting]);
+    if (status !== "live") return;
+    // "Your room is starting" pops in while the members drop onto the scale, then the screen
+    // scales up into the chat.
+    const moment = Animated.sequence([
+      Animated.spring(starting, { toValue: 1, useNativeDriver: true, friction: 5 }),
+      Animated.delay(Math.max(0, dropInDuration(memberCount) - 300)),
+      Animated.timing(zoom, { toValue: 1, duration: 320, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+    ]);
+    moment.start(({ finished }) => {
+      if (finished) router.replace(`/room/${id}/chat`);
+    });
+    return () => moment.stop();
+  }, [status, id, starting, zoom, memberCount]);
 
   if (!room) {
     return (
@@ -43,7 +54,15 @@ export default function RoomLobby() {
       <View style={styles.top}>
         <BackButton />
       </View>
-      <View style={styles.body}>
+      <Animated.View
+        style={[
+          styles.body,
+          {
+            opacity: zoom.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+            transform: [{ scale: zoom.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) }],
+          },
+        ]}
+      >
         {live ? (
           <Animated.View style={[styles.startingWrap, { opacity: starting, transform: [{ scale: starting.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }]}>
             <Text style={styles.startingText}>Your room is starting</Text>
@@ -61,10 +80,10 @@ export default function RoomLobby() {
 
         <View style={[card, styles.membersCard]}>
           <Text style={type.title}>{room.members.length} in this room</Text>
-          <MiniScale members={room.members} youId={userId} />
-          <Text style={styles.muted}>Rooms start with 3+ people.</Text>
+          <MiniScale members={room.members} youId={userId} dropIn={live} />
+          <Text style={styles.muted}>{live ? "Everyone's here." : "Rooms start with 3+ people."}</Text>
         </View>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -72,8 +91,8 @@ export default function RoomLobby() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   center: { alignItems: "center", justifyContent: "center" },
-  top: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
-  body: { flex: 1, padding: spacing.lg, gap: spacing.xl, justifyContent: "center" },
+  top: { paddingHorizontal: spacing.screen, paddingTop: spacing.sm },
+  body: { flex: 1, padding: spacing.screen, gap: spacing.xl, justifyContent: "center" },
   countdownWrap: { alignItems: "center", gap: spacing.sm },
   countdown: { fontSize: 64, fontWeight: "800", color: colors.text, fontVariant: ["tabular-nums"] },
   startingWrap: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.lg },
