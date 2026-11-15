@@ -273,34 +273,69 @@ export const send = mutation({
 });
 
 // "Watch live": live rooms where every member allowed spectators
+// Live rooms where every member allowed spectators
+async function watchableRooms(ctx: QueryCtx, topicId?: Id<"topics">) {
+  const rooms = await ctx.db
+    .query("rooms")
+    .withIndex("by_status_and_slotStart", (q) => q.eq("status", "live"))
+    .collect();
+  const result = [];
+  for (const room of rooms) {
+    if (topicId && room.topicId !== topicId) continue;
+    const members = await activeMembers(ctx, room._id);
+    if (members.length === 0 || !members.every((m) => m.allowSpectators)) continue;
+    const topic = await ctx.db.get(room.topicId);
+    result.push({
+      _id: room._id,
+      topicId: room.topicId,
+      question: topic?.question ?? "",
+      endsAt: room.endsAt,
+      members: await Promise.all(
+        members.map(async (m) => ({
+          name: (await ctx.db.get(m.userId))?.name ?? "",
+          position: m.position,
+          band: m.band,
+        })),
+      ),
+    });
+  }
+  return result;
+}
+
 export const live = query({
   args: { topicId: v.optional(v.id("topics")) },
-  handler: async (ctx, { topicId }) => {
-    const rooms = await ctx.db
-      .query("rooms")
-      .withIndex("by_status_and_slotStart", (q) => q.eq("status", "live"))
-      .collect();
-    const result = [];
-    for (const room of rooms) {
-      if (topicId && room.topicId !== topicId) continue;
-      const members = await activeMembers(ctx, room._id);
-      if (members.length === 0 || !members.every((m) => m.allowSpectators)) continue;
-      const topic = await ctx.db.get(room.topicId);
-      result.push({
-        _id: room._id,
-        topicId: room.topicId,
-        question: topic?.question ?? "",
-        endsAt: room.endsAt,
-        members: await Promise.all(
-          members.map(async (m) => ({
-            name: (await ctx.db.get(m.userId))?.name ?? "",
-            position: m.position,
-            band: m.band,
-          })),
-        ),
-      });
-    }
-    return result;
+  handler: async (ctx, { topicId }) => watchableRooms(ctx, topicId),
+});
+
+const FEATURED_WINDOW = 2 * MINUTE;
+
+// rooms.featured: the live, watchable room with the most messages in the last 2 minutes.
+// Pass `now` from the client (queries don't read the clock); without it, the window ends at
+// the newest message in any watchable room.
+export const featured = query({
+  args: { topicId: v.optional(v.id("topics")), now: v.optional(v.number()) },
+  handler: async (ctx, { topicId, now }) => {
+    const rooms = await watchableRooms(ctx, topicId);
+    if (rooms.length === 0) return null;
+    const recent = await Promise.all(
+      rooms.map((r) =>
+        ctx.db
+          .query("roomMessages")
+          .withIndex("by_room", (q) => q.eq("roomId", r._id))
+          .order("desc")
+          .take(200),
+      ),
+    );
+    const windowEnd = now ?? Math.max(0, ...recent.flat().map((m) => m._creationTime));
+    let best: { room: (typeof rooms)[number]; recentMessages: number } | null = null;
+    rooms.forEach((room, i) => {
+      const recentMessages = recent[i].filter(
+        (m) => m.kind === "user" && m._creationTime >= windowEnd - FEATURED_WINDOW && m._creationTime <= windowEnd,
+      ).length;
+      if (!best || recentMessages > best.recentMessages) best = { room, recentMessages };
+    });
+    const pick = best as { room: (typeof rooms)[number]; recentMessages: number } | null;
+    return pick ? { ...pick.room, recentMessages: pick.recentMessages } : null;
   },
 });
 

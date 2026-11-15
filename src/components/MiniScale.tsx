@@ -42,6 +42,16 @@ function MemberDot({ member, you, row, dropIn, delay }: { member: RoomMember; yo
   );
 }
 
+export function ScaleTrack() {
+  return (
+    <View style={styles.track}>
+      <View style={{ flex: 1, backgroundColor: colors.sideA }} />
+      <View style={{ flex: 1, backgroundColor: "#B9B9C2" }} />
+      <View style={{ flex: 1, backgroundColor: colors.sideB }} />
+    </View>
+  );
+}
+
 export function MiniScale({
   members,
   youId,
@@ -58,11 +68,7 @@ export function MiniScale({
   return (
     <View style={styles.wrap}>
       <View style={styles.area}>
-        <View style={styles.track}>
-          <View style={{ flex: 1, backgroundColor: colors.sideA }} />
-          <View style={{ flex: 1, backgroundColor: "#B9B9C2" }} />
-          <View style={{ flex: 1, backgroundColor: colors.sideB }} />
-        </View>
+        <ScaleTrack />
         {members.map((m, i) => (
           <MemberDot key={m.userId} member={m} you={m.userId === youId} row={i} dropIn={dropIn} delay={i * DROP_STAGGER_MS} />
         ))}

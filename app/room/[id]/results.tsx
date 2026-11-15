@@ -4,6 +4,7 @@ import { ActivityIndicator, Animated, Easing, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../../src/components/Button";
+import { MovementScale } from "../../../src/components/MovementScale";
 import { useMindsMoved, useMyRank, useRoom, useRoomSummaries, useUser } from "../../../src/data";
 import { useSavedUserId } from "../../../src/session";
 import { card, colors, radius, spacing, type } from "../../../src/theme";
@@ -123,9 +124,16 @@ export default function Results() {
             <Text style={type.label}>Did your mind move?</Text>
             <Text style={styles.movedText}>{moved}</Text>
             {minds && minds.total > 1 && (
-              <Text style={styles.muted}>
-                {minds.movedCount} of {minds.total} in your room moved 10+ points.
-              </Text>
+              <>
+                <View style={styles.mindsCount}>
+                  <Text style={type.label}>Minds moved</Text>
+                  <Text style={styles.mindsCountValue}>
+                    {minds.movedCount}/{minds.total}
+                  </Text>
+                </View>
+                <MovementScale members={minds.members} youId={userId} sideA={room?.topic?.sideA} sideB={room?.topic?.sideB} />
+                <Text style={styles.legend}>Hollow dots show where everyone started.</Text>
+              </>
             )}
           </View>
         )}
@@ -171,6 +179,9 @@ const styles = StyleSheet.create({
   total: { fontSize: 15, fontWeight: "700", color: colors.text, marginTop: spacing.xs },
   breakdown: { gap: spacing.sm },
   movedText: { fontSize: 20, fontWeight: "700", color: colors.text },
+  mindsCount: { alignItems: "center", marginTop: spacing.sm },
+  mindsCountValue: { fontSize: 56, fontWeight: "800", color: colors.accent, fontVariant: ["tabular-nums"] },
+  legend: { fontSize: 13, color: colors.muted, textAlign: "center" },
   row: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md },
   rowLabel: { ...type.body, flex: 1 },
   rowValue: { ...type.body, fontWeight: "700", fontVariant: ["tabular-nums"] },
