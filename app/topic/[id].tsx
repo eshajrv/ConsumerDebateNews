@@ -1,16 +1,56 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "../../src/components/BackButton";
-import { Button } from "../../src/components/Button";
 import { SplitBar } from "../../src/components/SplitBar";
 import { StanceSlider } from "../../src/components/StanceSlider";
-import { useFeed, useJoinRoom, useNextRoom, useSetStance, useTopicStats } from "../../src/data";
+import { type RoomMode, useFeed, useJoinRoom, useNextRoom, useSetStance, useTopicStats } from "../../src/data";
 import { formatTime, pacificDate, todayString } from "../../src/date";
 import { useSavedUserId } from "../../src/session";
 import { colors, radius, spacing, type } from "../../src/theme";
+
+const OPTIONS: { mode: RoomMode; title: string; subtitle: string }[] = [
+  { mode: "duo", title: "1-on-1", subtitle: "Talk with one person who sees it differently" },
+  { mode: "group", title: "Group", subtitle: "Up to 6 people across the spectrum" },
+];
+
+function JoinOption({
+  topicId,
+  option,
+  loading,
+  disabled,
+  onPress,
+}: {
+  topicId: string;
+  option: (typeof OPTIONS)[number];
+  loading: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const next = useNextRoom(topicId, option.mode);
+  const off = disabled || loading;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: off }}
+      onPress={onPress}
+      disabled={off}
+      style={({ pressed }) => [styles.option, disabled && !loading && styles.optionDisabled, pressed && styles.optionPressed]}
+    >
+      {loading ? (
+        <ActivityIndicator color={colors.onAccent} />
+      ) : (
+        <>
+          <Text style={styles.optionTitle}>{option.title}</Text>
+          <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+          <Text style={styles.optionNext}>{next ? `${formatTime(next.slot)} room · ${next.joinedCount} joined` : " "}</Text>
+        </>
+      )}
+    </Pressable>
+  );
+}
 
 export default function TopicScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -18,13 +58,12 @@ export default function TopicScreen() {
   const topics = useFeed(userId, pacificDate());
   const topic = topics?.find((t) => t._id === id);
   const stats = useTopicStats(id);
-  const next = useNextRoom(id);
   const setStance = useSetStance();
   const joinRoom = useJoinRoom();
 
   const [position, setPosition] = useState(50);
   const [saved, setSaved] = useState(false);
-  const [joining, setJoining] = useState(false);
+  const [joining, setJoining] = useState<RoomMode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const save = async (value: number) => {
@@ -33,18 +72,18 @@ export default function TopicScreen() {
     setSaved(true);
   };
 
-  async function join() {
+  async function join(mode: RoomMode) {
     if (!userId) return;
-    setJoining(true);
+    setJoining(mode);
     setError(null);
     try {
       if (!saved) await save(position);
-      const roomId = await joinRoom({ userId, topicId: id });
+      const roomId = await joinRoom({ userId, topicId: id, mode });
       router.push(`/room/${roomId}`);
     } catch {
       setError("Couldn't join the room. Try again.");
     } finally {
-      setJoining(false);
+      setJoining(null);
     }
   }
 
@@ -102,8 +141,16 @@ export default function TopicScreen() {
 
       <View style={styles.footer}>
         {error && <Text style={styles.error}>{error}</Text>}
-        <Text style={styles.next}>{next ? `${next.joinedCount} joined so far` : " "}</Text>
-        <Button title={next ? `Join the ${formatTime(next.slot)} room` : "Join the next room"} loading={joining} onPress={join} />
+        {OPTIONS.map((option) => (
+          <JoinOption
+            key={option.mode}
+            topicId={id}
+            option={option}
+            loading={joining === option.mode}
+            disabled={joining !== null}
+            onPress={() => join(option.mode)}
+          />
+        ))}
       </View>
     </SafeAreaView>
   );
@@ -120,6 +167,20 @@ const styles = StyleSheet.create({
   take: { gap: spacing.md, marginTop: spacing.md },
   saved: { fontSize: 14, color: colors.muted },
   footer: { padding: spacing.screen, paddingTop: spacing.sm, gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
-  next: { fontSize: 14, color: colors.muted, textAlign: "center" },
+  option: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.card,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 84,
+    gap: 2,
+  },
+  optionDisabled: { opacity: 0.4 },
+  optionPressed: { opacity: 0.85 },
+  optionTitle: { color: colors.onAccent, fontSize: 17, fontWeight: "700" },
+  optionSubtitle: { color: colors.onAccent, fontSize: 14, textAlign: "center", opacity: 0.9 },
+  optionNext: { color: colors.onAccent, fontSize: 13, fontWeight: "600", opacity: 0.75, fontVariant: ["tabular-nums"] },
   error: { fontSize: 15, color: colors.error, textAlign: "center" },
 });

@@ -41,6 +41,8 @@ export type Topic = {
 
 export type TopicStats = { total: number; leanA: number; leanB: number; talkingNow: number };
 
+export type RoomMode = "duo" | "group";
+
 export type NextRoom = { slot: number; joinedCount: number };
 
 export type RoomStatus = "waiting" | "live" | "rolled" | "summarizing" | "done";

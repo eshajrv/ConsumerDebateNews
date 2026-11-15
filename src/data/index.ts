@@ -13,7 +13,7 @@ import { getVersion, subscribe } from "../fake/store";
 import * as summaries from "../fake/summaries";
 import * as users from "../fake/users";
 import { api } from "./api";
-import type { Id, LeaderboardPeriod } from "./types";
+import type { Id, LeaderboardPeriod, RoomMode } from "./types";
 
 export * from "./types";
 
@@ -65,9 +65,9 @@ export const useFeed = (userId: Id | null, date: string) =>
   useFeedData(api.feed.forUser, skipUnless(userId, { userId: userId!, date }), feed.forUser);
 export const useTopicStats = (topicId: Id) => useFeedData(api.dailyTopics.stats, { topicId }, feed.topicStats);
 
-export const useNextRoom = (topicId: Id) => {
+export const useNextRoom = (topicId: Id, mode?: RoomMode) => {
   const minute = Math.floor(useNow(15_000) / 60_000) * 60_000;
-  return useRoomsData(api.rooms.next, { topicId, now: minute }, rooms.nextRoom);
+  return useRoomsData(api.rooms.next, mode ? { topicId, now: minute, mode } : { topicId, now: minute }, rooms.nextRoom);
 };
 export const useJoinRoom = () => useRoomsAction(api.rooms.join, rooms.joinRoom);
 export const useRoom = (roomId: Id) => {
