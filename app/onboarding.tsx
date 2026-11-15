@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../src/components/Button";
@@ -9,6 +9,9 @@ import { type Interest, type NotifyVia, useOnboard } from "../src/data";
 import { afterOnboarding } from "../src/links";
 import { saveUserId } from "../src/session";
 import { colors, radius, spacing, type } from "../src/theme";
+
+const PRACTIFY_NUMBER = "+17796251378";
+const SMS_BODY = "Hey Practify, I'd like to get my morning news feed setup. (K-T3JFHD)";
 
 const INTERESTS: { value: Interest; label: string }[] = [
   { value: "tech", label: "Tech" },
@@ -34,6 +37,8 @@ export default function Onboarding() {
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sayHi, setSayHi] = useState(false);
+  const [smsFailed, setSmsFailed] = useState(false);
 
   const phoneDigits = phone.replace(/\D/g, "");
   const canContinue = [
@@ -63,11 +68,49 @@ export default function Onboarding() {
         phone: notifyVia === "text" ? phone.trim() : undefined,
       });
       await saveUserId(userId);
+      if (notifyVia === "text") {
+        setSaving(false);
+        setSayHi(true);
+        return;
+      }
       router.replace(afterOnboarding(next));
     } catch {
       setError("Couldn't save that. Check your connection and try again.");
       setSaving(false);
     }
+  }
+
+  async function openMessages() {
+    const url = `sms:${PRACTIFY_NUMBER}${Platform.OS === "ios" ? "&" : "?"}body=${encodeURIComponent(SMS_BODY)}`;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      setSmsFailed(true);
+    }
+  }
+
+  if (sayHi) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.body}>
+          <Text style={type.question}>Last step: say hi to Practify 👋</Text>
+          <Text style={styles.hint}>
+            Send one text to turn on your 8 AM feed. You can reply to it anytime to share your take and join rooms.
+          </Text>
+          {smsFailed && (
+            <Text style={styles.fallback} selectable>
+              Text +1 (779) 625-1378 to finish setup
+            </Text>
+          )}
+        </View>
+        <View style={styles.footer}>
+          <Button title="Open Messages" onPress={openMessages} />
+          <Pressable onPress={() => router.replace(afterOnboarding(next))} hitSlop={12} style={styles.codeLink}>
+            <Text style={styles.back}>I&apos;ll do it later</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -203,6 +246,7 @@ const styles = StyleSheet.create({
   optionLabel: { fontSize: 18, fontWeight: "700", color: colors.text },
   optionLabelSelected: { color: colors.accent },
   footer: { padding: spacing.screen, gap: spacing.md },
+  fallback: { ...type.body, fontWeight: "600" },
   error: { fontSize: 15, color: colors.error, textAlign: "center" },
   codeLink: { alignSelf: "center" },
 });
