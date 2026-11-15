@@ -3,16 +3,38 @@
   "private": true,
   "version": "0.1.0",
   "description": "Practify: a daily news feed and small-group conversations with people who see it differently.",
+  "main": "expo-router/entry",
   "scripts": {
     "dev": "convex dev",
-    "typecheck": "tsc --noEmit -p convex"
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p convex",
+    "typecheck:app": "tsc --noEmit"
   },
   "dependencies": {
-    "convex": "^1.17.0",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "convex": "^1.50.0",
+    "expo": "~58.0.25",
+    "expo-constants": "~58.0.16",
+    "expo-linking": "~58.0.17",
+    "expo-router": "~58.0.31",
+    "expo-status-bar": "~58.0.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-screens": "~4.30.1",
+    "react-native-web": "^0.21.4",
     "supermemory": "^5.1.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.6.0"
+    "@types/react": "~19.3.0",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~58.0.4",
+    "typescript": "~6.0.3"
   }
 }
