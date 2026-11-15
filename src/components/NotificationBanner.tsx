@@ -12,7 +12,7 @@ const SHOW_MS = 6000;
 // When the app opens, slides down the newest unread notification once.
 export function NotificationBanner() {
   const userId = useSavedUserId();
-  const notifications = useNotifications(userId);
+  const notifications = useNotifications(userId)?.notifications;
   const markRead = useMarkRead();
   const insets = useSafeAreaInsets();
   const [bannerId, setBannerId] = useState<Id | null | undefined>(undefined);
