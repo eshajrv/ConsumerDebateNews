@@ -1,24 +1,27 @@
 // convex/lib/claude.ts
-// Shared helper for calling Claude from Convex actions.
-// Set ANTHROPIC_API_KEY in your Convex dashboard (Settings > Environment Variables).
+// Shared helper for calling the AI model from Convex actions.
+// The hackathon credits are OpenAI, so this calls OpenAI's Chat Completions API.
+// Set OPENAI_API_KEY in your Convex dashboard (Settings > Environment Variables).
+// The name askClaude is kept so existing callers don't change.
+
+const MODEL = "gpt-4.1";
 
 export async function askClaude(prompt: string, maxTokens = 1000): Promise<string> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
-      "x-api-key": process.env.ANTHROPIC_API_KEY!,
-      "anthropic-version": "2023-06-01",
+      authorization: `Bearer ${process.env.OPENAI_API_KEY!}`,
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-5-5",
+      model: MODEL,
       max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
     }),
   });
-  if (!res.ok) throw new Error(`Claude API error ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`OpenAI API error ${res.status}: ${await res.text()}`);
   const data = await res.json();
-  return data.content[0].text;
+  return data.choices[0].message.content ?? "";
 }
 
 // Pulls the first JSON object or array out of a model response.
