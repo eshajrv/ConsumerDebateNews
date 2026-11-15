@@ -284,11 +284,24 @@ export async function topicStats(ctx: QueryCtx, topicId: Id<"topics">) {
     .query("conversations")
     .withIndex("by_topic_status", (q) => q.eq("topicId", topicId).eq("status", "live"))
     .collect();
+  const liveRooms = await ctx.db
+    .query("rooms")
+    .withIndex("by_status_and_slotStart", (q) => q.eq("status", "live"))
+    .collect();
+  let inRooms = 0;
+  for (const room of liveRooms) {
+    if (room.topicId !== topicId) continue;
+    const members = await ctx.db
+      .query("roomMembers")
+      .withIndex("by_room", (q) => q.eq("roomId", room._id))
+      .collect();
+    inRooms += members.filter((m) => !m.left).length;
+  }
   return {
     total: stances.length,
     leanA,
     leanB: stances.length - leanA,
-    talkingNow: live.length * 2,
+    talkingNow: live.length * 2 + inRooms,
   };
 }
 

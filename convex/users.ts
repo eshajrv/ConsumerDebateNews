@@ -88,7 +88,12 @@ export const upsertByPhone = internalMutation({
 
 export const get = query({
   args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => ctx.db.get(userId),
+  handler: async (ctx, { userId }) => {
+    const user = await ctx.db.get(userId);
+    if (!user) return null;
+    const { phone: _phone, ...rest } = user;
+    return rest;
+  },
 });
 
 // Saves a 0-100 position and updates the daily streak. Shared by setStance and Keiki takes.
@@ -118,7 +123,7 @@ export async function saveStance(
   else await ctx.db.insert("stances", { userId, topicId, ...fields });
 
   const user = await ctx.db.get(userId);
-  if (!user) throw new Error("User not found");
+  if (!user) throw new ConvexError("We couldn't find your account. Try signing up again.");
   if (user.lastActiveDate !== today) {
     const d = new Date(`${today}T12:00:00Z`);
     d.setUTCDate(d.getUTCDate() - 1);

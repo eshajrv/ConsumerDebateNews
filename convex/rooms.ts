@@ -214,6 +214,7 @@ export const get = query({
           band: m.band,
           circleOrder: m.circleOrder,
           summarizesUserId: m.summarizesUserId,
+          movedToRoomId: m.movedToRoomId,
         })),
       ),
     };
@@ -233,12 +234,12 @@ export const send = mutation({
   args: { roomId: v.id("rooms"), userId: v.id("users"), text: v.string() },
   handler: async (ctx, { roomId, userId, text }) => {
     const room = await ctx.db.get(roomId);
-    if (!room || room.status !== "live") throw new Error("This room isn't live");
+    if (!room || room.status !== "live") throw new ConvexError("This room isn't live right now.");
     const member = await ctx.db
       .query("roomMembers")
       .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", userId))
       .unique();
-    if (!member || member.left) throw new Error("Only room members can send messages");
+    if (!member || member.left) throw new ConvexError("Only people in this room can send messages.");
     const clean = text.trim().slice(0, 500);
     if (!clean) return;
     const messageId = await ctx.db.insert("roomMessages", { roomId, userId, text: clean, kind: "user" });
@@ -309,8 +310,8 @@ export const checkStart = internalMutation({
       return;
     }
 
-    await ctx.db.patch(roomId, { status: "rolled" });
     const slotStart = nextSlot(Math.max(Date.now(), room.slotStart));
+    const movedCount = new Map<Id<"rooms">, number>();
     for (const m of members) {
       const newRoomId = await placeInRoom(ctx, {
         userId: m.userId,
@@ -319,8 +320,12 @@ export const checkStart = internalMutation({
         allowSpectators: m.allowSpectators,
         slotStart,
       });
+      movedCount.set(newRoomId, (movedCount.get(newRoomId) ?? 0) + 1);
+      await ctx.db.patch(m._id, { movedToRoomId: newRoomId });
       await notify(ctx, m.userId, `We moved you to ${formatTime(slotStart)}`, roomLink(newRoomId));
     }
+    const movedToRoomId = [...movedCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    await ctx.db.patch(roomId, { status: "rolled", movedToRoomId });
   },
 });
 

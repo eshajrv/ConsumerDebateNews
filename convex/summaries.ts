@@ -51,19 +51,19 @@ export const submit = mutation({
   },
   handler: async (ctx, { conversationId, roomId, authorId, text }) => {
     if (roomId) return submitForRoom(ctx, roomId, authorId, text);
-    if (!conversationId) throw new Error("Pass a roomId or a conversationId");
+    if (!conversationId) throw new ConvexError("We couldn't find your room. Try again.");
     const c = await ctx.db.get(conversationId);
-    if (!c) throw new Error("Conversation not found");
-    if (c.status === "live") throw new Error("Summaries open when the conversation ends");
-    if (authorId !== c.userA && authorId !== c.userB) throw new Error("Not your conversation");
+    if (!c) throw new ConvexError("We couldn't find that conversation.");
+    if (c.status === "live") throw new ConvexError("Summaries open when the conversation ends.");
+    if (authorId !== c.userA && authorId !== c.userB) throw new ConvexError("This isn't your conversation.");
     const clean = text.trim().slice(0, 400);
-    if (!clean) throw new Error("Write a sentence first");
+    if (!clean) throw new ConvexError("Write a sentence first.");
 
     const existing = await ctx.db
       .query("summaries")
       .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
       .collect();
-    if (existing.some((s) => s.authorId === authorId)) throw new Error("You already submitted");
+    if (existing.some((s) => s.authorId === authorId)) throw new ConvexError("You already sent your summary.");
 
     const summaryId = await ctx.db.insert("summaries", {
       conversationId,
@@ -151,9 +151,9 @@ export const guess = mutation({
   },
   handler: async (ctx, { summaryId, userId, pick }) => {
     const s = await ctx.db.get(summaryId);
-    if (!s || !s.aiText) throw new Error("Not ready yet");
-    if (userId !== s.aboutUserId) throw new Error("Only the person being summarized can guess");
-    if (s.subjectGuess) throw new Error("Already guessed");
+    if (!s || !s.aiText) throw new ConvexError("Still getting this ready. Try again in a moment.");
+    if (userId !== s.aboutUserId) throw new ConvexError("Only the person being summarized can guess.");
+    if (s.subjectGuess) throw new ConvexError("You already guessed.");
     await ctx.db.patch(summaryId, { subjectGuess: pick });
   },
 });
@@ -163,9 +163,9 @@ export const rate = mutation({
   args: { summaryId: v.id("summaries"), userId: v.id("users"), gotMeRating: v.number() },
   handler: async (ctx, { summaryId, userId, gotMeRating }) => {
     const s = await ctx.db.get(summaryId);
-    if (!s || !s.subjectGuess) throw new Error("Guess first");
-    if (userId !== s.aboutUserId) throw new Error("Only the person being summarized can rate");
-    if (s.gotMeRating) throw new Error("Already rated");
+    if (!s || !s.subjectGuess) throw new ConvexError("Make your guess first.");
+    if (userId !== s.aboutUserId) throw new ConvexError("Only the person being summarized can rate.");
+    if (s.gotMeRating) throw new ConvexError("You already rated this.");
 
     const rating = Math.max(1, Math.min(5, Math.round(gotMeRating)));
     const humanIs = s.humanIsFirst ? "first" : "second";
@@ -234,8 +234,8 @@ export const spectatorVote = mutation({
   },
   handler: async (ctx, { summaryId, userId, pick }) => {
     const s = await ctx.db.get(summaryId);
-    if (!s) throw new Error("Not found");
-    if (userId === s.authorId || userId === s.aboutUserId) throw new Error("Participants can't vote here");
+    if (!s) throw new ConvexError("We couldn't find that summary.");
+    if (userId === s.authorId || userId === s.aboutUserId) throw new ConvexError("People in the conversation can't vote here.");
     const votes = await ctx.db
       .query("summaryVotes")
       .withIndex("by_summary", (q) => q.eq("summaryId", summaryId))
