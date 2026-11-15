@@ -8,7 +8,7 @@
 //   POST /keiki/user             { phone, name? }          -> { userId, isNew }
 //   GET  /keiki/feed?phone=      -> the user's 4 topics (shared first) with live split
 //   POST /keiki/take             { phone, topicId, text }  -> { status: "saved", position, take } | { status: "unclear", followUp }
-//   POST /keiki/join             { phone, topicId }        -> { roomId, slot, link, code }
+//   POST /keiki/join             { phone, topicId, mode? } -> { roomId, slot, link, code }
 //   GET  /join?code=<code>       -> public HTML page showing the room code and an "Open Practify" button
 //
 // Every endpoint requires the header "x-practify-key" to equal KEIKI_SHARED_SECRET (set in Convex
@@ -203,7 +203,11 @@ http.route({
     const phone = body && str(body.phone) && normalizePhone(str(body.phone)!);
     const topicId = body && str(body.topicId);
     if (!phone || !topicId) return json({ error: "phone and topicId are required" }, 400);
-    const r = await ctx.runMutation(internal.keiki.join, { phone, topicId });
+    const mode = body.mode ?? undefined;
+    if (mode !== undefined && mode !== "duo" && mode !== "group") {
+      return json({ error: 'mode must be "duo" or "group"' }, 400);
+    }
+    const r = await ctx.runMutation(internal.keiki.join, { phone, topicId, mode });
     if ("error" in r)
       return json({ error: r.error }, r.error === "user not found" || r.error === "topic not found" ? 404 : 400);
     const link = `${process.env.CONVEX_SITE_URL}/join?code=${r.code}`;

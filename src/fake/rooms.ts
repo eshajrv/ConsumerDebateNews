@@ -1,4 +1,4 @@
-import type { Band, Id, LiveRoom, NextRoom, Room, RoomMember, RoomMessage, RoomMessageKind } from "../data/types";
+import type { Band, Id, LiveRoom, MindsMoved, NextRoom, Room, RoomMember, RoomMessage, RoomMessageKind } from "../data/types";
 import { getTopic } from "./feed";
 import { changed, newId } from "./store";
 import { getUser, stances } from "./users";
@@ -188,4 +188,28 @@ export function liveRooms({ topicId }: { topicId?: Id }): LiveRoom[] {
       endsAt: r.endsAt,
       members: r.members.map(({ name, position, band }) => ({ name, position, band })),
     }));
+}
+
+const positionsAfter: Record<string, number> = {}; // `${roomId}:${userId}` -> 0-100
+
+export async function setPositionAfter({ roomId, userId, position }: { roomId: Id; userId: Id; position: number }): Promise<null> {
+  positionsAfter[`${roomId}:${userId}`] = Math.max(0, Math.min(100, Math.round(position)));
+  changed();
+  return null;
+}
+
+export function mindsMoved({ roomId }: { roomId: Id }): MindsMoved {
+  const room = getRoom({ roomId });
+  const members = (room?.members ?? []).map((m) => {
+    const after = positionsAfter[`${roomId}:${m.userId}`] ?? null;
+    return { userId: m.userId, name: m.name, before: m.position, after, shift: after === null ? null : after - m.position, aiAfter: null, reason: null };
+  });
+  const gap = (ps: number[]) => (ps.length ? Math.max(...ps) - Math.min(...ps) : 0);
+  return {
+    members,
+    movedCount: members.filter((m) => m.shift !== null && Math.abs(m.shift) >= 10).length,
+    total: members.length,
+    averageGapBefore: gap(members.map((m) => m.before)),
+    averageGapAfter: gap(members.map((m) => m.after ?? m.before)),
+  };
 }

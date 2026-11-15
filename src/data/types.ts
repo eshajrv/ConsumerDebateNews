@@ -17,6 +17,8 @@ export type User = {
   insight?: string;
   phone?: string;
   interests?: string[];
+  knowWell?: string[];
+  wantToLearn?: string[];
   notifyVia?: NotifyVia;
   totalPoints?: number;
 };
@@ -77,17 +79,15 @@ export type RoomMessage = {
   flagged?: boolean;
 };
 
-export type LiveRoom = {
-  _id: Id<"rooms">;
-  topicId: Id<"topics">;
-  question: string;
-  endsAt?: number;
-  members: { name: string; position: number; band: Band }[];
+export type MindsMovedMember = {
+  userId: Id<"users">;
+  name: string;
+  before: number;
+  after: number | null; // their slider answer
+  shift: number | null;
+  aiAfter: number | null; // AI estimate, used when they skip the slider
+  reason: string | null;
 };
-
-// rooms.mindsMoved: before is the stance at join; after and shift (after - before) are null until rooms.setPositionAfter.
-// movedCount counts members whose |shift| is 10 or more.
-export type MindsMovedMember = { userId: Id<"users">; name: string; before: number; after: number | null; shift: number | null };
 
 export type MindsMoved = {
   members: MindsMovedMember[];
@@ -95,6 +95,14 @@ export type MindsMoved = {
   total: number;
   averageGapBefore: number;
   averageGapAfter: number;
+};
+
+export type LiveRoom = {
+  _id: Id<"rooms">;
+  topicId: Id<"topics">;
+  question: string;
+  endsAt?: number;
+  members: { name: string; position: number; band: Band }[];
 };
 
 export type GuessPick = "first" | "second";
@@ -143,7 +151,9 @@ export type MyRank = { rank: number | null; points: number };
 
 export type OnboardArgs = {
   name: string;
-  interests: Interest[];
+  interests?: Interest[]; // kept equal to wantToLearn
+  knowWell: Interest[];
+  wantToLearn: Interest[];
   notifyVia: NotifyVia;
   phone?: string;
 };

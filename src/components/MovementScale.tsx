@@ -12,7 +12,7 @@ const SLIDE_MS = 900;
 const rowTop = (row: number) => (row % 2 ? 34 : 0);
 
 function MovingDot({ member, you, row }: { member: MindsMovedMember; you: boolean; row: number }) {
-  const after = member.after ?? member.before;
+  const after = member.after ?? member.aiAfter ?? member.before;
   const [position] = useState(() => new Animated.Value(member.before));
 
   useEffect(() => {
@@ -38,7 +38,7 @@ function MovingDot({ member, you, row }: { member: MindsMovedMember; you: boolea
   );
 }
 
-// Hollow dots mark where everyone started; filled dots slide to where they stand now.
+// Hollow dots mark where everyone started; filled dots slide to where they stand now (their answer, else the AI estimate).
 export function MovementScale({ members, youId, sideA, sideB }: { members: MindsMovedMember[]; youId: string | null; sideA?: string; sideB?: string }) {
   return (
     <View style={styles.wrap}>

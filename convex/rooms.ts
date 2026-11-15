@@ -21,8 +21,12 @@ const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 const FIRST_SLOT = 7 * 60; // 7:00 AM Pacific, in minutes after midnight
 const LAST_SLOT = 22 * 60; // 10:00 PM Pacific
-const MAX_MEMBERS = 6;
-const MIN_TO_START = 2;
+const MAX_MEMBERS = { duo: 2, group: 6 };
+const MIN_TO_START = { duo: 2, group: 2 };
+
+type Mode = "duo" | "group";
+export const modeValidator = v.union(v.literal("duo"), v.literal("group"));
+const modeOf = (room: Doc<"rooms">): Mode => room.mode ?? "group";
 const MIN_SPREAD = 40;
 const ROOM_MS = 10 * MINUTE;
 const NUDGE_MS = 4 * MINUTE;
@@ -94,6 +98,7 @@ async function placeInRoom(
     position: number;
     allowSpectators: boolean;
     slotStart: number;
+    mode: Mode;
   },
 ): Promise<Id<"rooms">> {
   const band = bandOf(args.position);
@@ -102,15 +107,21 @@ async function placeInRoom(
     .withIndex("by_topic_and_slotStart", (q) => q.eq("topicId", args.topicId).eq("slotStart", args.slotStart))
     .collect();
 
-  let best: { room: Doc<"rooms">; sameBand: number; total: number } | null = null;
+  // Rooms need a band-M member to start, so a band-M user first goes to a room with no M yet.
+  // Otherwise: the room with the fewest people from the user's band, then the emptier room.
+  let best: { room: Doc<"rooms">; needsMiddle: boolean; sameBand: number; total: number } | null = null;
   for (const room of rooms) {
-    if (room.status !== "waiting") continue;
+    if (room.status !== "waiting" || modeOf(room) !== args.mode) continue;
     const members = await activeMembers(ctx, room._id);
-    if (members.length >= MAX_MEMBERS) continue;
+    if (members.length >= MAX_MEMBERS[args.mode]) continue;
     const sameBand = members.filter((m) => m.band === band).length;
-    if (!best || sameBand < best.sameBand || (sameBand === best.sameBand && members.length < best.total)) {
-      best = { room, sameBand, total: members.length };
-    }
+    const needsMiddle = band === "M" && !members.some((m) => m.band === "M");
+    const better =
+      !best ||
+      (needsMiddle && !best.needsMiddle) ||
+      (needsMiddle === best.needsMiddle &&
+        (sameBand < best.sameBand || (sameBand === best.sameBand && members.length < best.total)));
+    if (better) best = { room, needsMiddle, sameBand, total: members.length };
   }
 
   let roomId: Id<"rooms">;
@@ -123,6 +134,7 @@ async function placeInRoom(
       slotStart: args.slotStart,
       status: "waiting",
       allowSpectators: args.allowSpectators,
+      mode: args.mode,
     });
     await ctx.scheduler.runAt(args.slotStart, internal.rooms.checkStart, { roomId });
     if (args.slotStart - MINUTE > Date.now()) {
@@ -144,8 +156,8 @@ async function placeInRoom(
 
 // "Next room 8:15, 4 joined". `now` comes from the phone (queries can't read the clock).
 export const next = query({
-  args: { topicId: v.id("topics"), now: v.number() },
-  handler: async (ctx, { topicId, now }) => {
+  args: { topicId: v.id("topics"), now: v.number(), mode: v.optional(modeValidator) },
+  handler: async (ctx, { topicId, now, mode }) => {
     const slot = nextSlot(now);
     const rooms = await ctx.db
       .query("rooms")
@@ -153,7 +165,9 @@ export const next = query({
       .collect();
     let joinedCount = 0;
     for (const room of rooms) {
-      if (room.status === "waiting") joinedCount += (await activeMembers(ctx, room._id)).length;
+      if (room.status === "waiting" && modeOf(room) === (mode ?? "group")) {
+        joinedCount += (await activeMembers(ctx, room._id)).length;
+      }
     }
     return { slot, joinedCount };
   },
@@ -162,7 +176,12 @@ export const next = query({
 // Shared by rooms.join and the Keiki join endpoint
 export async function joinRoom(
   ctx: MutationCtx,
-  { userId, topicId, allowSpectators }: { userId: Id<"users">; topicId: Id<"topics">; allowSpectators?: boolean },
+  {
+    userId,
+    topicId,
+    allowSpectators,
+    mode,
+  }: { userId: Id<"users">; topicId: Id<"topics">; allowSpectators?: boolean; mode?: Mode },
 ): Promise<Id<"rooms">> {
   const stance = await ctx.db
     .query("stances")
@@ -189,11 +208,17 @@ export async function joinRoom(
     position: stance.position,
     allowSpectators: allowSpectators ?? true,
     slotStart: nextSlot(Date.now()),
+    mode: mode ?? "group",
   });
 }
 
 export const join = mutation({
-  args: { userId: v.id("users"), topicId: v.id("topics"), allowSpectators: v.optional(v.boolean()) },
+  args: {
+    userId: v.id("users"),
+    topicId: v.id("topics"),
+    allowSpectators: v.optional(v.boolean()),
+    mode: v.optional(modeValidator),
+  },
   handler: async (ctx, args) => joinRoom(ctx, args),
 });
 
@@ -300,8 +325,12 @@ export const checkStart = internalMutation({
     const members = await activeMembers(ctx, roomId);
     const positions = members.map((m) => m.position);
     const spread = positions.length ? Math.max(...positions) - Math.min(...positions) : 0;
+    const mode = modeOf(room);
+    // Middle person rule (group rooms): someone in band M (36-64) keeps the room from
+    // splitting into two camps. Duos are 1-on-1 and only need the spread.
+    const hasMiddle = mode === "duo" || members.some((m) => m.band === "M");
 
-    if (members.length >= MIN_TO_START && spread >= MIN_SPREAD) {
+    if (members.length >= MIN_TO_START[mode] && spread >= MIN_SPREAD && hasMiddle) {
       const endsAt = Date.now() + ROOM_MS;
       await ctx.db.patch(roomId, { status: "live", endsAt });
       await ctx.scheduler.runAfter(0, internal.rooms.writeOpener, { roomId });
@@ -319,6 +348,7 @@ export const checkStart = internalMutation({
         position: m.position,
         allowSpectators: m.allowSpectators,
         slotStart,
+        mode,
       });
       movedCount.set(newRoomId, (movedCount.get(newRoomId) ?? 0) + 1);
       await ctx.db.patch(m._id, { movedToRoomId: newRoomId });
@@ -496,6 +526,114 @@ export const end = internalMutation({
     }
     await ctx.scheduler.runAfter(0, internal.rooms.writeClosing, { roomId });
     await ctx.scheduler.runAfter(0, internal.ai.rateRoomCivility, { roomId });
+    await ctx.scheduler.runAfter(0, internal.rooms.estimateEndPositions, { roomId });
+  },
+});
+
+// ---------- Did minds move: AI estimate of where each member ended up ----------
+
+export const endContext = internalQuery({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    const room = await ctx.db.get(roomId);
+    if (!room) return null;
+    const topic = await ctx.db.get(room.topicId);
+    if (!topic) return null;
+    const msgs = await ctx.db
+      .query("roomMessages")
+      .withIndex("by_room", (q) => q.eq("roomId", roomId))
+      .collect();
+    const members = await Promise.all(
+      (await activeMembers(ctx, roomId)).map(async (m) => ({
+        userId: m.userId,
+        name: (await ctx.db.get(m.userId))?.name ?? "Someone",
+        position: m.position,
+        positionAfter: m.positionAfter ?? null,
+        messages: msgs.filter((x) => x.kind === "user" && x.userId === m.userId).map((x) => x.text),
+      })),
+    );
+    return {
+      date: topic.date,
+      category: topic.category,
+      question: topic.question,
+      sideA: topic.sideA,
+      sideB: topic.sideB,
+      members,
+    };
+  },
+});
+
+export const setEndEstimates = internalMutation({
+  args: {
+    roomId: v.id("rooms"),
+    estimates: v.array(v.object({ userId: v.id("users"), position: v.number(), reason: v.string() })),
+  },
+  handler: async (ctx, { roomId, estimates }) => {
+    for (const e of estimates) {
+      const member = await ctx.db
+        .query("roomMembers")
+        .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", e.userId))
+        .unique();
+      if (member) await ctx.db.patch(member._id, { endPositionAI: e.position, endReason: e.reason });
+    }
+  },
+});
+
+export const estimateEndPositions = internalAction({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    const d = await ctx.runQuery(internal.rooms.endContext, { roomId });
+    if (!d || d.members.length === 0) return;
+    const prompt = `A group just discussed: "${d.question}"
+0 = fully "${d.sideA}", 100 = fully "${d.sideB}".
+
+For each numbered person you get where they started and everything they wrote.
+Estimate where they stand NOW, 0-100, judging only from what they wrote. If they wrote
+little or nothing, or never signaled a change, keep their start position.
+Give a one-line, neutral reason (no judgement of who is right).
+
+${d.members
+  .map((m, i) => `Person ${i + 1}: started at ${m.position}\n${m.messages.length ? m.messages.map((t) => `- ${t}`).join("\n") : "(wrote nothing)"}`)
+  .join("\n\n")}
+
+Return ONLY JSON like {"1": {"position": 40, "reason": "..."}, "2": {...}} for persons ${d.members.map((_, i) => i + 1).join(", ")}.`;
+
+    let estimates: { userId: Id<"users">; position: number; reason: string }[];
+    try {
+      const r = extractJson<Record<string, { position: number; reason: string }>>(await askClaude(prompt, 600));
+      estimates = d.members.flatMap((m, i) => {
+        const e = r[String(i + 1)];
+        const n = Number(e?.position);
+        if (!Number.isFinite(n)) return [];
+        return [{ userId: m.userId, position: Math.max(0, Math.min(100, Math.round(n))), reason: String(e.reason ?? "").slice(0, 200) }];
+      });
+    } catch (e) {
+      console.log(`End-position estimate failed: ${(e as Error).message}`);
+      return;
+    }
+    await ctx.runMutation(internal.rooms.setEndEstimates, { roomId, estimates });
+
+    // Save start and end to Supermemory. A slider answer wins: rooms.setPositionAfter saves
+    // that one (same memory id), so only members who haven't answered use the AI estimate.
+    for (const m of d.members) {
+      const est = estimates.find((e) => e.userId === m.userId);
+      const after = m.positionAfter ?? est?.position;
+      if (after === undefined) continue;
+      await ctx.scheduler.runAfter(0, internal.memory.remember, {
+        shift: {
+          roomId,
+          userId: m.userId,
+          name: m.name,
+          date: d.date,
+          category: d.category,
+          question: d.question,
+          sideA: d.sideA,
+          sideB: d.sideB,
+          before: m.position,
+          after,
+        },
+      });
+    }
   },
 });
 
@@ -617,6 +755,8 @@ export const mindsMoved = query({
         before: m.position,
         after: m.positionAfter ?? null,
         shift: m.positionAfter === undefined ? null : m.positionAfter - m.position,
+        aiAfter: m.endPositionAI ?? null, // AI estimate, used when they skip the slider
+        reason: m.endReason ?? null,
       })),
     );
     const gap = (ps: number[]) => (ps.length ? Math.max(...ps) - Math.min(...ps) : 0);

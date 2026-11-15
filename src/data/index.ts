@@ -7,7 +7,6 @@ import { pacificDate, useNow } from "../date";
 import * as feed from "../fake/feed";
 import * as leaderboard from "../fake/leaderboard";
 import * as links from "../fake/links";
-import * as mindsMoved from "../fake/mindsMoved";
 import * as notifications from "../fake/notifications";
 import * as rooms from "../fake/rooms";
 import { getVersion, subscribe } from "../fake/store";
@@ -53,11 +52,8 @@ const useNotificationsData = dataHook("notifications");
 const useNotificationsAction = actionHook("notifications");
 const useLeaderboardData = dataHook("leaderboard");
 const useLinksAction = actionHook("links");
-const useMindsMovedData = dataHook("mindsMoved");
-const useMindsMovedAction = actionHook("mindsMoved");
 
 const BRIDGE_ROOMS_TO_FAKE_SUMMARIES = !FAKE.rooms && FAKE.summaries;
-const BRIDGE_ROOMS_TO_FAKE_MINDS_MOVED = !FAKE.rooms && FAKE.mindsMoved;
 
 const skipUnless = <A extends Args>(ready: unknown, args: A): A | "skip" => (ready ? args : "skip");
 
@@ -78,15 +74,14 @@ export const useRoom = (roomId: Id) => {
   const room = useRoomsData(api.rooms.get, { roomId }, rooms.getRoom);
   useEffect(() => {
     if (BRIDGE_ROOMS_TO_FAKE_SUMMARIES && room) summaries.rememberRoom(room);
-    if (BRIDGE_ROOMS_TO_FAKE_MINDS_MOVED && room) mindsMoved.rememberRoom(room);
   }, [room]);
   return room;
 };
 export const useRoomMessages = (roomId: Id) => useRoomsData(api.rooms.messages, { roomId }, rooms.roomMessages);
 export const useSendMessage = () => useRoomsAction(api.rooms.send, rooms.sendMessage);
-export const useSetPositionAfter = () => useMindsMovedAction(api.rooms.setPositionAfter, mindsMoved.setPositionAfter);
-export const useMindsMoved = (roomId: Id) => useMindsMovedData(api.rooms.mindsMoved, { roomId }, mindsMoved.mindsMoved);
 export const useLiveRooms = (topicId?: Id) => useRoomsData(api.rooms.live, topicId ? { topicId } : {}, rooms.liveRooms);
+export const useSetPositionAfter = () => useRoomsAction(api.rooms.setPositionAfter, rooms.setPositionAfter);
+export const useMindsMoved = (roomId: Id) => useRoomsData(api.rooms.mindsMoved, { roomId }, rooms.mindsMoved);
 
 export const useRoomSummaries = (roomId: Id, userId: Id | null) =>
   useSummariesData(api.summaries.forRoom, skipUnless(userId, { roomId, userId: userId! }), summaries.summariesForRoom);

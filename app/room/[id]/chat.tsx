@@ -22,7 +22,7 @@ export default function GroupChat() {
 
   const status = room?.status;
   useEffect(() => {
-    if (status === "summarizing" || status === "done") router.replace(`/room/${id}/summary`);
+    if (status === "summarizing" || status === "done") router.replace(`/room/${id}/stand`);
   }, [status, id]);
 
   if (!room || !messages) {

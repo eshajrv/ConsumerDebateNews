@@ -6,7 +6,6 @@ export const FAKE = {
   notifications: false,
   leaderboard: false,
   links: false,
-  mindsMoved: false,
 };
 
 export type DataArea = keyof typeof FAKE;

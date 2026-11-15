@@ -10,7 +10,9 @@ export default defineSchema({
     lastActiveDate: v.optional(v.string()), // "YYYY-MM-DD" in the user's local time
     insight: v.optional(v.string()), // personal insight from Supermemory, shown on Results
     phone: v.optional(v.string()), // E.164, only for text users; never shown to others
-    interests: v.optional(v.array(v.string())), // "tech" | "politics" | "culture" | "sports" | "campus"
+    interests: v.optional(v.array(v.string())), // "tech" | "politics" | "culture" | "sports" | "campus"; = wantToLearn for new users
+    knowWell: v.optional(v.array(v.string())), // categories the user knows a lot about
+    wantToLearn: v.optional(v.array(v.string())), // categories the user wants to learn more about
     notifyVia: v.optional(v.union(v.literal("app"), v.literal("text"))),
     totalPoints: v.optional(v.number()),
   })
@@ -130,6 +132,7 @@ export default defineSchema({
     agreementLine: v.optional(v.string()), // judge's closing line
     allowSpectators: v.optional(v.boolean()),
     movedToRoomId: v.optional(v.id("rooms")), // set when rolled: where (most) members went
+    mode: v.optional(v.union(v.literal("duo"), v.literal("group"))), // missing = "group"
   })
     .index("by_topic_and_slotStart", ["topicId", "slotStart"])
     .index("by_status_and_slotStart", ["status", "slotStart"]),
@@ -146,6 +149,8 @@ export default defineSchema({
     left: v.optional(v.boolean()),
     movedToRoomId: v.optional(v.id("rooms")), // set when this member's room rolled
     positionAfter: v.optional(v.number()), // "Minds moved": where they stand after the chat, 0-100
+    endPositionAI: v.optional(v.number()), // AI estimate of where they ended up, from their messages
+    endReason: v.optional(v.string()), // one line on why the AI placed them there
   })
     .index("by_room", ["roomId"])
     .index("by_user", ["userId"])

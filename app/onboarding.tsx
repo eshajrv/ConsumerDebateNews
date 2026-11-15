@@ -28,7 +28,8 @@ export default function Onboarding() {
   const onboard = useOnboard();
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
-  const [interests, setInterests] = useState<Interest[]>([]);
+  const [knowWell, setKnowWell] = useState<Interest[]>([]);
+  const [wantToLearn, setWantToLearn] = useState<Interest[]>([]);
   const [notifyVia, setNotifyVia] = useState<NotifyVia | null>(null);
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
@@ -37,12 +38,16 @@ export default function Onboarding() {
   const phoneDigits = phone.replace(/\D/g, "");
   const canContinue = [
     name.trim().length > 0,
-    interests.length >= 3,
+    wantToLearn.length >= 1,
     notifyVia === "app" || (notifyVia === "text" && phoneDigits.length >= 10),
   ][step];
 
-  const toggleInterest = (value: Interest) =>
-    setInterests((list) => (list.includes(value) ? list.filter((i) => i !== value) : [...list, value]));
+  // A category sits in at most one list: picking it in one removes it from the other.
+  const toggle = (value: Interest, list: "know" | "learn") => {
+    const [set, other] = list === "know" ? [setKnowWell, setWantToLearn] : [setWantToLearn, setKnowWell];
+    set((l) => (l.includes(value) ? l.filter((i) => i !== value) : [...l, value]));
+    other((l) => l.filter((i) => i !== value));
+  };
 
   async function finish() {
     if (!notifyVia) return;
@@ -51,7 +56,9 @@ export default function Onboarding() {
     try {
       const userId = await onboard({
         name: name.trim(),
-        interests,
+        interests: wantToLearn,
+        knowWell,
+        wantToLearn,
         notifyVia,
         phone: notifyVia === "text" ? phone.trim() : undefined,
       });
@@ -99,11 +106,18 @@ export default function Onboarding() {
 
           {step === 1 && (
             <>
-              <Text style={type.question}>What do you want to talk about?</Text>
-              <Text style={styles.hint}>Pick 3 or more. We use these to choose topics, never sides.</Text>
+              <Text style={type.question}>I know a lot about</Text>
+              <Text style={styles.hint}>Optional. You might be the one explaining it.</Text>
               <View style={styles.chips}>
                 {INTERESTS.map((i) => (
-                  <Chip key={i.value} label={i.label} selected={interests.includes(i.value)} onPress={() => toggleInterest(i.value)} />
+                  <Chip key={i.value} label={i.label} selected={knowWell.includes(i.value)} onPress={() => toggle(i.value, "know")} />
+                ))}
+              </View>
+              <Text style={[type.question, styles.secondQuestion]}>I want to learn more about</Text>
+              <Text style={styles.hint}>Pick at least one. We use these to choose topics, never sides.</Text>
+              <View style={styles.chips}>
+                {INTERESTS.map((i) => (
+                  <Chip key={i.value} label={i.label} selected={wantToLearn.includes(i.value)} onPress={() => toggle(i.value, "learn")} />
                 ))}
               </View>
             </>
@@ -182,6 +196,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm + 4 },
+  secondQuestion: { marginTop: spacing.md },
   options: { gap: spacing.md },
   option: { borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.card, padding: spacing.lg, gap: spacing.xs },
   optionSelected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },

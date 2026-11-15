@@ -203,3 +203,43 @@ both ways. 4:45 leaderboard, join link, feed ranking, watch live. 5:00 freeze.
 If behind at 3:30, cut in order: Watch live; join by link (keep code); Supermemory
 ranking (keep interests); judge nudges; leaderboard. Never cut: feed, take, room,
 group chat with judge, Here's what I heard.
+
+## NEW: from the Candle founder conversation
+
+Five changes, built on top of everything above. Where they disagree with earlier
+sections, these win.
+
+1. **Profile.** Onboarding asks two things instead of "interests": "I know a lot
+   about" (`users.knowWell`, optional) and "I want to learn more about"
+   (`users.wantToLearn`, 1+ required), using the same categories. A category can
+   be in only one list. `users.interests` is kept and set equal to `wantToLearn`
+   so Keiki and older code keep working. `users.onboard` accepts `knowWell` and
+   `wantToLearn` (`interests` optional).
+
+2. **Feed.** 4 topics: the shared topic, 2 from `wantToLearn` categories (fall
+   back to `interests`), and 1 from a category in neither `wantToLearn` nor
+   `knowWell`, to stretch people a little. A saved `feed.rank` order picks
+   within each slot. A slot that can't be filled takes the best remaining topic.
+   Still never ranked by the user's positions.
+
+3. **Did minds move.** The pitch number: the percent of today's room members
+   whose view moved 10+ points. Built on `roomMembers.positionAfter`,
+   `rooms.setPositionAfter` and `rooms.mindsMoved`:
+   - After the chat ends, before "Here's what I heard", each person answers
+     "Where do you stand now?" with the same slider (`rooms.setPositionAfter`).
+   - When a room ends, AI reads each member's messages and estimates their end
+     position 0-100 with a one-line reason (`roomMembers.endPositionAI`,
+     `endReason`). Start and end positions are saved to Supermemory.
+   - `stats.today` query: percent of today's room members whose end position
+     (their slider if set, else the AI estimate) is 10+ from their start, plus
+     counts.
+   - Results: "You moved N points toward <side or the middle>" or "You held
+     your ground".
+
+4. **Middle person rule.** A room starts only if it also has at least one
+   member in band M (36-64); otherwise it rolls like any other failed start.
+   When placing a band-M user, prefer a room for that slot with no M member yet.
+
+5. **Featured room.** `rooms.featured({ topicId? })`: the live, watchable room
+   with the most messages in the last 2 minutes. The Watch screen shows it at
+   the top, labeled "Featured".

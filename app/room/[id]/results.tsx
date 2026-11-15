@@ -9,8 +9,14 @@ import { useMindsMoved, useMyRank, useRoom, useRoomSummaries, useUser } from "..
 import { useSavedUserId } from "../../../src/session";
 import { card, colors, radius, spacing, type } from "../../../src/theme";
 
-// Same threshold as MOVED in convex/rooms.ts
-const MOVED = 10;
+// "You moved 12 points toward <side>" / "toward the middle" / "You held your ground"
+function movedLine(before: number, after: number, sideA: string, sideB: string): string {
+  const n = Math.abs(after - before);
+  if (n < 5) return "You held your ground.";
+  const sameSide = (before - 50) * (after - 50) >= 0;
+  const toward = sameSide && Math.abs(after - 50) < Math.abs(before - 50) ? "the middle" : after < before ? `"${sideA}"` : `"${sideB}"`;
+  return `You moved ${n} points toward ${toward}.`;
+}
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -95,18 +101,10 @@ export default function Results() {
     );
   }
 
-  const myMove = minds?.members.find((m) => m.userId === userId);
-  let moveLine: string | null = null;
-  if (myMove && myMove.after !== null && myMove.shift !== null) {
-    const { before, after, shift } = myMove;
-    const toward = minds!.members
-      .filter((m) => m.userId !== userId && Math.sign(m.before - before) === Math.sign(shift))
-      .sort((a, b) => Math.abs(a.before - after) - Math.abs(b.before - after))[0];
-    const towardName = toward?.name ?? (shift > 0 ? room?.topic?.sideB : room?.topic?.sideA) ?? "the other side";
-    moveLine = Math.abs(shift) >= MOVED ? `You moved ${Math.abs(shift)} points toward ${towardName}` : "You held your view";
-  }
-
   const bonus = points - rating * 10;
+  const mine = minds?.members.find((m) => m.userId === userId);
+  const endPosition = mine ? (mine.after ?? mine.aiAfter) : null;
+  const moved = mine && endPosition !== null && room?.topic ? movedLine(mine.before, endPosition, room.topic.sideA, room.topic.sideB) : null;
   const goodFaithChange = (rating - 3) * 2;
 
   return (
@@ -121,6 +119,25 @@ export default function Results() {
           </Text>
         </View>
 
+        {moved && (
+          <View style={[card, styles.breakdown]}>
+            <Text style={type.label}>Did your mind move?</Text>
+            <Text style={styles.movedText}>{moved}</Text>
+            {minds && minds.total > 1 && (
+              <>
+                <View style={styles.mindsCount}>
+                  <Text style={type.label}>Minds moved</Text>
+                  <Text style={styles.mindsCountValue}>
+                    {minds.movedCount}/{minds.total}
+                  </Text>
+                </View>
+                <MovementScale members={minds.members} youId={userId} sideA={room?.topic?.sideA} sideB={room?.topic?.sideB} />
+                <Text style={styles.legend}>Hollow dots show where everyone started.</Text>
+              </>
+            )}
+          </View>
+        )}
+
         <View style={[card, styles.breakdown]}>
           <Row label={`${rating} star${rating === 1 ? "" : "s"} × 10`} value={`+${rating * 10}`} />
           <Row
@@ -130,18 +147,6 @@ export default function Results() {
           <View style={styles.divider} />
           <Row label="Total" value={`+${points}`} />
         </View>
-
-        {minds && minds.total > 0 && (
-          <View style={[card, styles.minds]}>
-            <Text style={type.label}>Minds moved</Text>
-            <Text style={styles.mindsCount}>
-              {minds.movedCount}/{minds.total}
-            </Text>
-            {moveLine && <Text style={styles.moveLine}>{moveLine}</Text>}
-            <MovementScale members={minds.members} youId={userId} sideA={room?.topic?.sideA} sideB={room?.topic?.sideB} />
-            <Text style={styles.legend}>Hollow dots show where everyone started.</Text>
-          </View>
-        )}
 
         <View style={styles.stats}>
           <Stat label="Day streak" value={String(user.streak)} />
@@ -173,14 +178,14 @@ const styles = StyleSheet.create({
   muted: { fontSize: 16, color: colors.muted, textAlign: "center" },
   total: { fontSize: 15, fontWeight: "700", color: colors.text, marginTop: spacing.xs },
   breakdown: { gap: spacing.sm },
+  movedText: { fontSize: 20, fontWeight: "700", color: colors.text },
+  mindsCount: { alignItems: "center", marginTop: spacing.sm },
+  mindsCountValue: { fontSize: 56, fontWeight: "800", color: colors.accent, fontVariant: ["tabular-nums"] },
+  legend: { fontSize: 13, color: colors.muted, textAlign: "center" },
   row: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md },
   rowLabel: { ...type.body, flex: 1 },
   rowValue: { ...type.body, fontWeight: "700", fontVariant: ["tabular-nums"] },
   divider: { height: 1, backgroundColor: colors.border },
-  minds: { alignItems: "center", gap: spacing.sm, paddingHorizontal: 0 },
-  mindsCount: { fontSize: 56, fontWeight: "800", color: colors.accent, fontVariant: ["tabular-nums"] },
-  moveLine: { ...type.body, fontWeight: "600", textAlign: "center", paddingHorizontal: spacing.lg },
-  legend: { fontSize: 13, color: colors.muted },
   stats: { flexDirection: "row", gap: spacing.sm },
   stat: { flex: 1, paddingVertical: spacing.md, paddingHorizontal: spacing.sm, gap: spacing.xs, alignItems: "center" },
   deltaPill: { borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 },
