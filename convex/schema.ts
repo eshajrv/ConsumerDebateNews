@@ -162,6 +162,15 @@ export default defineSchema({
     flagged: v.optional(v.boolean()), // personal-attack check
   }).index("by_room", ["roomId"]),
 
+  // Leaderboard: summary points per user per Pacific day (updated in summaries.rate)
+  dailyPoints: defineTable({
+    userId: v.id("users"),
+    date: v.string(), // "YYYY-MM-DD" Pacific
+    points: v.number(),
+  })
+    .index("by_date_and_points", ["date", "points"])
+    .index("by_user_and_date", ["userId", "date"]),
+
   notifications: defineTable({
     userId: v.id("users"),
     message: v.string(),

@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "../src/components/BackButton";
 import { Chip } from "../src/components/Chip";
-import { type LeaderboardEntry, type LeaderboardPeriod, useLeaderboard, useMyRank } from "../src/data";
+import { type LeaderboardPeriod, useLeaderboard, useMyRank, useUser } from "../src/data";
 import { useSavedUserId } from "../src/session";
 import { card, colors, spacing, type } from "../src/theme";
 
@@ -13,17 +13,14 @@ const PERIODS: { value: LeaderboardPeriod; label: string }[] = [
   { value: "week", label: "This week" },
 ];
 
-function Row({ entry, mine }: { entry: LeaderboardEntry; mine: boolean }) {
+function Row({ rank, name, points, mine }: { rank: number | null; name: string; points: number; mine: boolean }) {
   return (
     <View style={[styles.row, mine && styles.mineRow]}>
-      <Text style={[styles.rank, mine && styles.mineText]}>{entry.rank}</Text>
-      <View style={styles.flex}>
-        <Text style={[styles.name, mine && styles.mineText]} numberOfLines={1}>
-          {mine ? `${entry.name} (you)` : entry.name}
-        </Text>
-        <Text style={styles.goodFaith}>Good faith {entry.goodFaithScore}</Text>
-      </View>
-      <Text style={[styles.points, mine && styles.mineText]}>{entry.points} pts</Text>
+      <Text style={[styles.rank, mine && styles.mineText]}>{rank ?? "-"}</Text>
+      <Text style={[styles.name, mine && styles.mineText]} numberOfLines={1}>
+        {mine ? `${name || "You"} (you)` : name}
+      </Text>
+      <Text style={[styles.points, mine && styles.mineText]}>{points} pts</Text>
     </View>
   );
 }
@@ -33,6 +30,7 @@ export default function Leaderboard() {
   const userId = useSavedUserId();
   const top = useLeaderboard(period);
   const me = useMyRank(userId, period);
+  const user = useUser(userId);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -56,7 +54,7 @@ export default function Leaderboard() {
         ) : (
           <View style={[card, styles.card]}>
             {top.map((e) => (
-              <Row key={e.userId} entry={e} mine={e.userId === userId} />
+              <Row key={e.userId} rank={e.rank} name={e.name} points={e.points} mine={e.userId === userId} />
             ))}
           </View>
         )}
@@ -64,7 +62,7 @@ export default function Leaderboard() {
 
       {me && (
         <View style={styles.pinned}>
-          <Row entry={me} mine />
+          <Row rank={me.rank} name={user?.name ?? ""} points={me.points} mine />
         </View>
       )}
     </SafeAreaView>
@@ -81,9 +79,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md, borderRadius: 12 },
   mineRow: { backgroundColor: colors.accentSoft },
   rank: { width: 28, fontSize: 16, fontWeight: "700", color: colors.muted, fontVariant: ["tabular-nums"] },
-  flex: { flex: 1, gap: 2 },
-  name: { fontSize: 16, fontWeight: "600", color: colors.text },
-  goodFaith: { fontSize: 12, color: colors.muted },
+  name: { flex: 1, fontSize: 16, fontWeight: "600", color: colors.text },
   points: { fontSize: 16, fontWeight: "700", color: colors.text, fontVariant: ["tabular-nums"] },
   mineText: { color: colors.accent },
   empty: { fontSize: 16, color: colors.muted, textAlign: "center" },

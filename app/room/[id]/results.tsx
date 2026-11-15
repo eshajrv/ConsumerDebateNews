@@ -99,7 +99,9 @@ export default function Results() {
         <View style={styles.hero}>
           <Animated.Text style={[styles.points, { transform: [{ scale: bounce }] }]}>+{shown}</Animated.Text>
           <Text style={styles.muted}>points for understanding {subjectName}</Text>
-          <Text style={styles.total}>{user.totalPoints ?? 0} points total</Text>
+          <Text style={styles.total}>
+            {user.totalPoints ?? 0} points total{rank ? ` · ${rank.points} today` : ""}
+          </Text>
         </View>
 
         <View style={[card, styles.breakdown]}>
@@ -115,7 +117,7 @@ export default function Results() {
         <View style={styles.stats}>
           <Stat label="Day streak" value={String(user.streak)} />
           <Stat label="Good faith" value={String(user.goodFaithScore)} delta={goodFaithChange} />
-          <Stat label="Rank today" value={rank ? `#${rank.rank}` : "-"} />
+          <Stat label="Rank today" value={rank?.rank ? `#${rank.rank}` : "-"} />
         </View>
 
         {user.insight && (

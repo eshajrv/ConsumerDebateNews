@@ -34,7 +34,7 @@ export default function Home() {
   const user = useUser(userId);
   const topics = useFeed(userId, pacificDate());
   const notifications = useNotifications(userId);
-  const unread = notifications?.filter((n) => !n.read).length ?? 0;
+  const unread = notifications?.unreadCount ?? 0;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 

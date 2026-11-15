@@ -3,8 +3,8 @@ export const FAKE = {
   feed: false,
   rooms: false,
   summaries: false,
-  notifications: true,
-  leaderboard: true,
+  notifications: false,
+  leaderboard: false,
   links: false,
 };
 
