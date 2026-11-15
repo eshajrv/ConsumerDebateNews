@@ -26,3 +26,17 @@ another folder, say so in the pull request instead of making it.
 - Type-check before opening a pull request (`npx tsc --noEmit` in the folder, or
   `npx convex dev --once` for the backend).
 - Keep pull requests small: one task per pull request.
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
+
+<!-- convex-ai-end -->
