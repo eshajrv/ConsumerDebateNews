@@ -5,7 +5,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { pacificDate, topicStats } from "./dailyTopics";
 import { feedForUser } from "./feed";
-import { joinRoom } from "./rooms";
+import { joinRoom, modeValidator } from "./rooms";
 import { createJoinLink } from "./links";
 import { saveStance, userByPhone } from "./users";
 
@@ -56,8 +56,8 @@ export const saveTake = internalMutation({
 });
 
 export const join = internalMutation({
-  args: { phone: v.string(), topicId: v.string() },
-  handler: async (ctx, { phone, topicId }) => {
+  args: { phone: v.string(), topicId: v.string(), mode: v.optional(modeValidator) },
+  handler: async (ctx, { phone, topicId, mode }) => {
     const user = await userByPhone(ctx, phone);
     if (!user) return { error: "user not found" as const };
     const id = ctx.db.normalizeId("topics", topicId);
@@ -67,7 +67,7 @@ export const join = internalMutation({
       .withIndex("by_user_topic", (q) => q.eq("userId", user._id).eq("topicId", id))
       .unique();
     if (!stance) return { error: "no take yet: save their take on this topic first" as const };
-    const roomId = await joinRoom(ctx, { userId: user._id, topicId: id });
+    const roomId = await joinRoom(ctx, { userId: user._id, topicId: id, mode });
     const room = await ctx.db.get(roomId);
     const code = await createJoinLink(ctx, user._id, roomId);
     return { roomId, slot: room!.slotStart, code };
