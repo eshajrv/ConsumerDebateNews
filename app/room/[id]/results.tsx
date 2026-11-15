@@ -4,7 +4,8 @@ import { ActivityIndicator, Animated, Easing, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../../src/components/Button";
-import { useMyRank, useRoomSummaries, useUser } from "../../../src/data";
+import { MovementScale } from "../../../src/components/MovementScale";
+import { useMindsMoved, useMyRank, useRoom, useRoomSummaries, useUser } from "../../../src/data";
 import { useSavedUserId } from "../../../src/session";
 import { card, colors, radius, spacing, type } from "../../../src/theme";
 
@@ -43,6 +44,8 @@ export default function Results() {
   const data = useRoomSummaries(id, userId);
   const user = useUser(userId);
   const rank = useMyRank(userId, "today");
+  const room = useRoom(id);
+  const minds = useMindsMoved(id);
   const [count] = useState(() => new Animated.Value(0));
   const [bounce] = useState(() => new Animated.Value(1));
   const [shown, setShown] = useState(0);
@@ -89,6 +92,15 @@ export default function Results() {
     );
   }
 
+  const myMove = minds?.members.find((m) => m.userId === userId);
+  const sideTowards = myMove?.after != null && myMove.after > myMove.before ? room?.topic?.sideB : room?.topic?.sideA;
+  const moveLine =
+    !myMove || myMove.after === null
+      ? null
+      : myMove.moved
+        ? `You moved ${Math.abs(myMove.after - myMove.before)} points toward ${myMove.towardName ?? sideTowards ?? "the other side"}`
+        : "You held your view";
+
   const bonus = points - rating * 10;
   const goodFaithChange = (rating - 3) * 2;
 
@@ -113,6 +125,18 @@ export default function Results() {
           <View style={styles.divider} />
           <Row label="Total" value={`+${points}`} />
         </View>
+
+        {minds && minds.total > 0 && (
+          <View style={[card, styles.minds]}>
+            <Text style={type.label}>Minds moved</Text>
+            <Text style={styles.mindsCount}>
+              {minds.moved}/{minds.total}
+            </Text>
+            {moveLine && <Text style={styles.moveLine}>{moveLine}</Text>}
+            <MovementScale members={minds.members} youId={userId} sideA={room?.topic?.sideA} sideB={room?.topic?.sideB} />
+            <Text style={styles.legend}>Hollow dots show where everyone started.</Text>
+          </View>
+        )}
 
         <View style={styles.stats}>
           <Stat label="Day streak" value={String(user.streak)} />
@@ -148,6 +172,10 @@ const styles = StyleSheet.create({
   rowLabel: { ...type.body, flex: 1 },
   rowValue: { ...type.body, fontWeight: "700", fontVariant: ["tabular-nums"] },
   divider: { height: 1, backgroundColor: colors.border },
+  minds: { alignItems: "center", gap: spacing.sm, paddingHorizontal: 0 },
+  mindsCount: { fontSize: 56, fontWeight: "800", color: colors.accent, fontVariant: ["tabular-nums"] },
+  moveLine: { ...type.body, fontWeight: "600", textAlign: "center", paddingHorizontal: spacing.lg },
+  legend: { fontSize: 13, color: colors.muted },
   stats: { flexDirection: "row", gap: spacing.sm },
   stat: { flex: 1, paddingVertical: spacing.md, paddingHorizontal: spacing.sm, gap: spacing.xs, alignItems: "center" },
   deltaPill: { borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 },

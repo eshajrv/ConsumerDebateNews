@@ -5,7 +5,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../../src/components/Button";
 import { MiniScale } from "../../../src/components/MiniScale";
-import { useRoom, useRoomSummaries, useSubmitSummary } from "../../../src/data";
+import { StanceSlider } from "../../../src/components/StanceSlider";
+import { useMindsMoved, useRoom, useRoomSummaries, useSetPositionAfter, useSubmitSummary } from "../../../src/data";
 import { errorMessage } from "../../../src/errors";
 import { useSavedUserId } from "../../../src/session";
 import { card, colors, radius, spacing, type } from "../../../src/theme";
@@ -19,6 +20,10 @@ export default function HeresWhatIHeard() {
   const data = useRoomSummaries(id, userId);
   const summaries = data?.summaries;
   const submit = useSubmitSummary();
+  const minds = useMindsMoved(id);
+  const setPositionAfter = useSetPositionAfter();
+  const [stance, setStance] = useState<number | null>(null);
+  const [stanceSaved, setStanceSaved] = useState(false);
   const [text, setText] = useState("You ");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +43,7 @@ export default function HeresWhatIHeard() {
     if (next) router.replace(next as `/room/${string}`);
   }, [next]);
 
-  if (!room || !summaries || !userId || next) {
+  if (!room || !summaries || !userId || minds === undefined || next) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
         {room === null || data === null ? <Text style={type.body}>Room not found.</Text> : <ActivityIndicator color={colors.accent} />}
@@ -48,6 +53,43 @@ export default function HeresWhatIHeard() {
 
   const me = room.members.find((m) => m.userId === userId);
   const target = room.members.find((m) => m.userId === me?.summarizesUserId);
+  const myAfter = minds?.members.find((m) => m.userId === userId)?.after ?? null;
+
+  if (me && !submitted && myAfter === null && !stanceSaved) {
+    const position = stance ?? me.position;
+
+    async function saveStance() {
+      if (!userId) return;
+      setSending(true);
+      setError(null);
+      try {
+        await setPositionAfter({ roomId: id, userId, position });
+        setStanceSaved(true);
+      } catch (e) {
+        setError(errorMessage(e, "That didn't save. Try again."));
+      } finally {
+        setSending(false);
+      }
+    }
+
+    return (
+      <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <Text style={type.label}>The room has ended</Text>
+          <View style={[card, styles.stanceCard]}>
+            <Text style={type.question}>Where do you stand now?</Text>
+            {room.topic && <Text style={styles.topic}>{room.topic.question}</Text>}
+            <StanceSlider value={position} sideA={room.topic?.sideA ?? ""} sideB={room.topic?.sideB ?? ""} onChange={setStance} onRelease={setStance} />
+            <Text style={styles.hint}>It starts where you were before the room. Move it if the conversation changed your mind.</Text>
+          </View>
+          {error && <Text style={styles.error}>{error}</Text>}
+        </ScrollView>
+        <View style={styles.footer}>
+          <Button title="Save" onPress={saveStance} loading={sending} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!target) {
     return (
@@ -130,6 +172,9 @@ const styles = StyleSheet.create({
   flexCenter: { flex: 1, justifyContent: "center", gap: spacing.md },
   content: { padding: spacing.screen, gap: spacing.lg },
   scaleCard: { paddingHorizontal: 0, paddingVertical: spacing.sm },
+  stanceCard: { gap: spacing.md },
+  topic: { fontSize: 16, lineHeight: 22, color: colors.muted },
+  hint: { fontSize: 14, lineHeight: 20, color: colors.muted },
   input: {
     ...type.body,
     minHeight: 120,
