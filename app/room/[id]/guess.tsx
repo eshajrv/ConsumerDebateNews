@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../../src/components/Button";
@@ -21,27 +21,38 @@ type FlipCardProps = {
 };
 
 function FlipCard({ letter, text, flip, revealed, isHuman, authorName, picked, disabled, onPress }: FlipCardProps) {
+  const lift = flip.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.94, 1] });
   const front = {
     opacity: flip.interpolate({ inputRange: [0, 0.5, 0.5001, 1], outputRange: [1, 1, 0, 0] }),
-    transform: [{ perspective: 1000 }, { rotateY: flip.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "180deg"] }) }],
+    transform: [{ perspective: 1200 }, { rotateY: flip.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "180deg"] }) }, { scale: lift }],
   };
   const back = {
     opacity: flip.interpolate({ inputRange: [0, 0.5, 0.5001, 1], outputRange: [0, 0, 1, 1] }),
-    transform: [{ perspective: 1000 }, { rotateY: flip.interpolate({ inputRange: [0, 1], outputRange: ["180deg", "360deg"] }) }],
+    transform: [{ perspective: 1200 }, { rotateY: flip.interpolate({ inputRange: [0, 1], outputRange: ["180deg", "360deg"] }) }, { scale: lift }],
   };
   return (
     <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={`Summary ${letter}`}>
       <Animated.View style={[card, styles.face, picked && styles.picked, front]}>
-        <Text style={styles.letter}>{letter}</Text>
+        <View style={styles.faceHeader}>
+          <View style={[styles.badge, styles.letterBadge, picked && styles.letterBadgePicked]}>
+            <Text style={[styles.badgeText, styles.letterBadgeText, picked && { color: colors.onAccent }]}>{letter}</Text>
+          </View>
+          {picked && <Text style={styles.byline}>Your guess</Text>}
+        </View>
         <Text style={type.body}>{text}</Text>
       </Animated.View>
       <Animated.View
         pointerEvents={revealed ? "auto" : "none"}
         style={[card, styles.face, styles.back, isHuman ? styles.human : styles.ai, back]}
       >
-        <Text style={[styles.letter, isHuman && { color: colors.accent }]}>
-          {letter} · {isHuman ? `Human · ${authorName} wrote this` : "AI wrote this"}
-        </Text>
+        <View style={styles.faceHeader}>
+          <View style={[styles.badge, isHuman ? styles.humanBadge : styles.aiBadge]}>
+            <Text style={[styles.badgeText, { color: colors.onAccent }]}>{isHuman ? "HUMAN" : "AI"}</Text>
+          </View>
+          <Text style={[styles.byline, isHuman && { color: colors.accent }]} numberOfLines={1}>
+            {isHuman ? `${authorName} wrote this` : "Written by the AI"}
+          </Text>
+        </View>
         <Text style={type.body}>{text}</Text>
       </Animated.View>
     </Pressable>
@@ -66,8 +77,8 @@ export default function GuessAndRate() {
   useEffect(() => {
     if (!revealed) return;
     Animated.stagger(180, [
-      Animated.timing(flipA, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.timing(flipB, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(flipA, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(flipB, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
     ]).start();
   }, [revealed, flipA, flipB]);
 
@@ -186,15 +197,23 @@ export default function GuessAndRate() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   center: { alignItems: "center", justifyContent: "center", gap: spacing.md },
-  padded: { padding: spacing.lg },
-  content: { padding: spacing.lg, gap: spacing.lg },
+  padded: { padding: spacing.screen },
+  content: { padding: spacing.screen, gap: spacing.lg },
   muted: { fontSize: 16, lineHeight: 22, color: colors.muted },
-  face: { gap: spacing.sm, backfaceVisibility: "hidden" },
+  face: { gap: spacing.md, padding: spacing.md + 4, borderWidth: 2, backfaceVisibility: "hidden" },
   back: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-  picked: { borderColor: colors.accent, borderWidth: 2 },
-  human: { backgroundColor: colors.accentSoft, borderColor: colors.accent, borderWidth: 2 },
-  ai: { backgroundColor: colors.surface },
-  letter: { ...type.label, letterSpacing: 0.3 },
+  picked: { borderColor: colors.accent },
+  human: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+  ai: { backgroundColor: colors.surface, borderColor: colors.border },
+  faceHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm, height: 36 },
+  badge: { height: 36, minWidth: 36, paddingHorizontal: spacing.md, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
+  badgeText: { fontSize: 18, fontWeight: "800", letterSpacing: 1 },
+  letterBadge: { paddingHorizontal: 0, backgroundColor: colors.surface },
+  letterBadgePicked: { backgroundColor: colors.accent },
+  letterBadgeText: { color: colors.text, letterSpacing: 0 },
+  humanBadge: { backgroundColor: colors.accent },
+  aiBadge: { backgroundColor: colors.muted },
+  byline: { flex: 1, fontSize: 16, fontWeight: "700", color: colors.muted },
   verdict: { fontSize: 18, fontWeight: "700", color: colors.accent, textAlign: "center" },
   rateBlock: { alignItems: "center", gap: spacing.sm },
   stars: { flexDirection: "row", gap: spacing.sm },
@@ -202,7 +221,7 @@ const styles = StyleSheet.create({
   starOn: { color: colors.accent },
   agreement: { padding: spacing.md, borderRadius: radius.card, backgroundColor: colors.surface, gap: spacing.xs },
   agreementText: { fontSize: 16, lineHeight: 22, color: colors.text, fontStyle: "italic" },
-  footer: { padding: spacing.lg, paddingTop: spacing.sm },
+  footer: { padding: spacing.screen, paddingTop: spacing.sm },
 });
 
 export { RoomErrorBoundary as ErrorBoundary } from "../../../src/components/RoomErrorBoundary";

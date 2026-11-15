@@ -13,10 +13,10 @@ export function SplitBar({ stats, sideA, sideB }: { stats: TopicStats | undefine
         <View style={{ flex: 100 - aPct, backgroundColor: colors.sideB }} />
       </View>
       <View style={styles.labels}>
-        <Text style={[styles.label, { color: colors.sideA }]} numberOfLines={1}>
+        <Text style={[styles.label, { color: colors.sideA }]} numberOfLines={2}>
           {sideA} {total ? `${aPct}%` : ""}
         </Text>
-        <Text style={[styles.label, { color: colors.sideB }]} numberOfLines={1}>
+        <Text style={[styles.label, { color: colors.sideB, textAlign: "right" }]} numberOfLines={2}>
           {total ? `${100 - aPct}%` : ""} {sideB}
         </Text>
       </View>
@@ -28,5 +28,5 @@ const styles = StyleSheet.create({
   wrap: { gap: spacing.xs + 2 },
   bar: { flexDirection: "row", height: 8, borderRadius: radius.pill, overflow: "hidden", gap: 2 },
   labels: { flexDirection: "row", justifyContent: "space-between", gap: spacing.sm },
-  label: { fontSize: 13, fontWeight: "600", flexShrink: 1 },
+  label: { fontSize: 13, lineHeight: 17, fontWeight: "600", flex: 1 },
 });

@@ -51,7 +51,7 @@ function ReactionButton({ label }: { label: string }) {
           { transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] }) }] },
         ]}
       >
-        <Text style={[styles.reactionText, count > 0 && styles.reactionTextOn]} numberOfLines={1}>
+        <Text style={[styles.reactionText, count > 0 && styles.reactionTextOn]} numberOfLines={2}>
           {label}
           {count > 0 ? ` ${count}` : ""}
         </Text>
@@ -157,17 +157,17 @@ export default function WatchRoom() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  center: { alignItems: "center", justifyContent: "center", padding: spacing.lg },
-  footer: { padding: spacing.lg },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  center: { alignItems: "center", justifyContent: "center", padding: spacing.screen },
+  footer: { padding: spacing.screen },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.screen, paddingVertical: spacing.sm },
   watching: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.sideA },
   watchingText: { fontSize: 14, fontWeight: "700", color: colors.sideA },
   timer: { fontSize: 20, fontWeight: "800", color: colors.text, fontVariant: ["tabular-nums"] },
-  question: { fontSize: 18, lineHeight: 24, fontWeight: "700", color: colors.text, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-  pinned: { marginHorizontal: spacing.lg, padding: spacing.md, borderRadius: radius.card, backgroundColor: colors.surface, gap: spacing.xs },
+  question: { fontSize: 18, lineHeight: 24, fontWeight: "700", color: colors.text, paddingHorizontal: spacing.screen, paddingBottom: spacing.sm },
+  pinned: { marginHorizontal: spacing.screen, padding: spacing.md, borderRadius: radius.card, backgroundColor: colors.surface, gap: spacing.xs },
   pinnedText: { fontSize: 16, lineHeight: 22, color: colors.text, fontWeight: "600" },
-  messages: { padding: spacing.lg, gap: spacing.md },
+  messages: { padding: spacing.screen, gap: spacing.md },
   empty: { fontSize: 15, color: colors.muted, textAlign: "center" },
   judge: { alignSelf: "center", maxWidth: "85%", alignItems: "center", gap: 2, paddingVertical: spacing.xs },
   judgeName: { fontSize: 12, fontWeight: "700", color: colors.muted, letterSpacing: 0.5, textTransform: "uppercase" },
@@ -178,11 +178,11 @@ const styles = StyleSheet.create({
   flagged: { borderWidth: 1, borderColor: colors.sideA },
   sender: { fontSize: 12, fontWeight: "700", color: colors.muted },
   msgText: { fontSize: 16, lineHeight: 22, color: colors.text },
-  reactions: { flexDirection: "row", gap: spacing.sm, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
+  reactions: { flexDirection: "row", gap: spacing.sm, padding: spacing.screen, borderTopWidth: 1, borderTopColor: colors.border },
   reactionWrap: { flex: 1, alignItems: "center" },
-  reaction: { alignSelf: "stretch", alignItems: "center", paddingVertical: spacing.sm + 2, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.border },
+  reaction: { alignSelf: "stretch", alignItems: "center", justifyContent: "center", minHeight: 44, paddingHorizontal: spacing.xs, paddingVertical: spacing.xs, borderRadius: radius.card, borderWidth: 1.5, borderColor: colors.border },
   reactionOn: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-  reactionText: { fontSize: 14, fontWeight: "700", color: colors.text },
+  reactionText: { fontSize: 13, lineHeight: 16, fontWeight: "700", color: colors.text, textAlign: "center" },
   reactionTextOn: { color: colors.accent },
   plusOne: { position: "absolute", top: -6, fontSize: 14, fontWeight: "800", color: colors.accent },
 });

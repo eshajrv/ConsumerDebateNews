@@ -72,8 +72,8 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.md },
-  header: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, marginBottom: spacing.sm },
+  content: { padding: spacing.screen, gap: spacing.md },
+  header: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginBottom: spacing.sm },
   flex: { flex: 1, gap: spacing.xs },
   card: { gap: spacing.md },
   shared: { borderColor: colors.accent, borderWidth: 1.5 },

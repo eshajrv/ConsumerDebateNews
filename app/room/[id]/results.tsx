@@ -20,12 +20,18 @@ function Row({ label, value }: { label: string; value: string }) {
 function Stat({ label, value, delta }: { label: string; value: string; delta?: number }) {
   return (
     <View style={[card, styles.stat]}>
-      <Text style={type.label}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={[type.label, styles.statLabel]} numberOfLines={2}>
+        {label}
+      </Text>
+      <Text style={styles.statValue} numberOfLines={1}>
+        {value}
+      </Text>
       {delta !== undefined && (
-        <Text style={[styles.delta, { color: delta >= 0 ? colors.sideB : colors.sideA }]}>
-          {delta >= 0 ? `+${delta}` : `${delta}`}
-        </Text>
+        <View style={[styles.deltaPill, { backgroundColor: delta > 0 ? colors.sideBSoft : delta < 0 ? colors.sideASoft : colors.surface }]}>
+          <Text style={[styles.delta, { color: delta > 0 ? colors.sideB : delta < 0 ? colors.sideA : colors.muted }]}>
+            {delta > 0 ? `+${delta}` : delta < 0 ? `${delta}` : "±0"}
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -38,6 +44,7 @@ export default function Results() {
   const user = useUser(userId);
   const rank = useMyRank(userId, "today");
   const [count] = useState(() => new Animated.Value(0));
+  const [bounce] = useState(() => new Animated.Value(1));
   const [shown, setShown] = useState(0);
 
   const authored = data?.summaries.find((s) => s.authorId === userId);
@@ -48,9 +55,20 @@ export default function Results() {
     if (points === null) return;
     const sub = count.addListener(({ value }) => setShown(Math.round(value)));
     count.setValue(0);
-    Animated.timing(count, { toValue: points, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
-    return () => count.removeListener(sub);
-  }, [points, count]);
+    bounce.setValue(1);
+    const countUp = Animated.timing(count, { toValue: points, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: false });
+    countUp.start(({ finished }) => {
+      if (!finished) return;
+      Animated.sequence([
+        Animated.timing(bounce, { toValue: 1.18, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.spring(bounce, { toValue: 1, friction: 3, tension: 160, useNativeDriver: true }),
+      ]).start();
+    });
+    return () => {
+      countUp.stop();
+      count.removeListener(sub);
+    };
+  }, [points, count, bounce]);
 
   if (!data || !userId || !user) {
     return (
@@ -79,7 +97,7 @@ export default function Results() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={type.label}>Results</Text>
         <View style={styles.hero}>
-          <Text style={styles.points}>+{shown}</Text>
+          <Animated.Text style={[styles.points, { transform: [{ scale: bounce }] }]}>+{shown}</Animated.Text>
           <Text style={styles.muted}>points for understanding {subjectName}</Text>
           <Text style={styles.total}>{user.totalPoints ?? 0} points total</Text>
         </View>
@@ -95,7 +113,7 @@ export default function Results() {
         </View>
 
         <View style={styles.stats}>
-          <Stat label="Streak" value={`${user.streak} day${user.streak === 1 ? "" : "s"}`} />
+          <Stat label="Day streak" value={String(user.streak)} />
           <Stat label="Good faith" value={String(user.goodFaithScore)} delta={goodFaithChange} />
           <Stat label="Rank today" value={rank ? `#${rank.rank}` : "-"} />
         </View>
@@ -117,8 +135,8 @@ export default function Results() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   center: { alignItems: "center", justifyContent: "center", gap: spacing.md },
-  padded: { padding: spacing.lg },
-  content: { padding: spacing.lg, gap: spacing.lg },
+  padded: { padding: spacing.screen },
+  content: { padding: spacing.screen, gap: spacing.lg },
   hero: { alignItems: "center", gap: spacing.xs, paddingVertical: spacing.md },
   points: { fontSize: 72, fontWeight: "800", color: colors.accent, fontVariant: ["tabular-nums"] },
   muted: { fontSize: 16, color: colors.muted, textAlign: "center" },
@@ -129,12 +147,14 @@ const styles = StyleSheet.create({
   rowValue: { ...type.body, fontWeight: "700", fontVariant: ["tabular-nums"] },
   divider: { height: 1, backgroundColor: colors.border },
   stats: { flexDirection: "row", gap: spacing.sm },
-  stat: { flex: 1, padding: spacing.md, gap: spacing.xs, alignItems: "center" },
+  stat: { flex: 1, paddingVertical: spacing.md, paddingHorizontal: spacing.sm, gap: spacing.xs, alignItems: "center" },
+  deltaPill: { borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 },
+  statLabel: { textAlign: "center" },
   statValue: { fontSize: 22, fontWeight: "800", color: colors.text },
   delta: { fontSize: 14, fontWeight: "700" },
   insight: { backgroundColor: colors.accentSoft, borderRadius: radius.card, padding: spacing.lg, gap: spacing.xs },
   insightText: { fontSize: 18, lineHeight: 24, fontWeight: "600", color: colors.text },
-  footer: { padding: spacing.lg, paddingTop: spacing.sm },
+  footer: { padding: spacing.screen, paddingTop: spacing.sm },
 });
 
 export { RoomErrorBoundary as ErrorBoundary } from "../../../src/components/RoomErrorBoundary";

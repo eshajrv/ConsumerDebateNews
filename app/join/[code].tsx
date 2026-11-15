@@ -39,8 +39,8 @@ export default function JoinWithLink() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  body: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.lg, gap: spacing.md },
+  body: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.screen, gap: spacing.md },
   center: { textAlign: "center" },
   muted: { fontSize: 16, color: colors.muted, textAlign: "center" },
-  footer: { padding: spacing.lg },
+  footer: { padding: spacing.screen },
 });

@@ -126,9 +126,9 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   center: { alignItems: "center", justifyContent: "center", gap: spacing.md },
-  padded: { padding: spacing.lg },
+  padded: { padding: spacing.screen },
   flexCenter: { flex: 1, justifyContent: "center", gap: spacing.md },
-  content: { padding: spacing.lg, gap: spacing.lg },
+  content: { padding: spacing.screen, gap: spacing.lg },
   scaleCard: { paddingHorizontal: 0, paddingVertical: spacing.sm },
   input: {
     ...type.body,
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   count: { position: "absolute", right: spacing.md, bottom: spacing.sm, fontSize: 12, color: colors.muted },
   muted: { fontSize: 16, lineHeight: 22, color: colors.muted, textAlign: "center" },
   error: { fontSize: 14, color: colors.error },
-  footer: { padding: spacing.lg, paddingTop: spacing.sm },
+  footer: { padding: spacing.screen, paddingTop: spacing.sm },
 });
 
 export { RoomErrorBoundary as ErrorBoundary } from "../../../src/components/RoomErrorBoundary";
