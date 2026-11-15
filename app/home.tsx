@@ -35,6 +35,8 @@ export default function Home() {
   const topics = useFeed(userId, pacificDate());
   const notifications = useNotifications(userId);
   const unread = notifications?.filter((n) => !n.read).length ?? 0;
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   async function startOver() {
     await clearUserId();
@@ -47,7 +49,7 @@ export default function Home() {
         <View style={styles.header}>
           <View style={styles.flex}>
             <Text style={type.label}>{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</Text>
-            <Text style={type.question}>{user ? `Good morning, ${user.name}` : "Good morning"}</Text>
+            <Text style={type.question}>{user ? `${greeting}, ${user.name}` : greeting}</Text>
           </View>
           <Trophy onPress={() => router.push("/leaderboard")} />
           <Eye onPress={() => router.push("/watch")} />
