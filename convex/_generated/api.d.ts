@@ -17,6 +17,8 @@ import type * as http from "../http.js";
 import type * as lib_claude from "../lib/claude.js";
 import type * as matching from "../matching.js";
 import type * as memory from "../memory.js";
+import type * as notify from "../notify.js";
+import type * as rooms from "../rooms.js";
 import type * as summaries from "../summaries.js";
 import type * as users from "../users.js";
 
@@ -36,6 +38,8 @@ declare const fullApi: ApiFromModules<{
   "lib/claude": typeof lib_claude;
   matching: typeof matching;
   memory: typeof memory;
+  notify: typeof notify;
+  rooms: typeof rooms;
   summaries: typeof summaries;
   users: typeof users;
 }>;
