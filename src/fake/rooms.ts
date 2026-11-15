@@ -1,11 +1,55 @@
-import type { Band, Id, LiveRoom, NextRoom, Room, RoomMessage } from "../data/types";
+import type { Band, Id, LiveRoom, NextRoom, Room, RoomMember, RoomMessage } from "../data/types";
 import { getTopic } from "./feed";
 import { changed, newId } from "./store";
 import { getUser, stances } from "./users";
 
-const SLOT_MINUTES = 15;
-const nextSlot = () => Math.ceil(Date.now() / (SLOT_MINUTES * 60_000)) * SLOT_MINUTES * 60_000;
+const SLOT_MINUTES = 2;
+const SLOT_MS = SLOT_MINUTES * 60_000;
+const CHAT_MS = 10 * 60_000;
+const MIN_LOBBY_MS = 30_000;
+
+const nextSlot = () => {
+  const slot = Math.ceil(Date.now() / SLOT_MS) * SLOT_MS;
+  return slot - Date.now() < MIN_LOBBY_MS ? slot + SLOT_MS : slot;
+};
 const bandOf = (position: number): Band => (position <= 35 ? "A" : position >= 65 ? "B" : "M");
+
+const FAKE_MEMBERS: RoomMember[] = [
+  { userId: "user_maya", name: "Maya", position: 12, band: "A" },
+  { userId: "user_jordan", name: "Jordan", position: 88, band: "B" },
+  { userId: "user_priya", name: "Priya", position: 45, band: "M" },
+];
+
+const REPLIES: Record<string, string[]> = {
+  user_maya: [
+    "I hear you, but I keep coming back to who pays the price if this goes wrong.",
+    "What would it take to change your mind on that?",
+    "That's fair. I still think the downside is bigger than people admit.",
+    "Okay, I can see why that matters to you. I just weigh it differently.",
+  ],
+  user_jordan: [
+    "I see it differently. Doing nothing has costs too, they're just harder to see.",
+    "Can you say more about why that part matters most to you?",
+    "Honestly that's a better argument than I expected.",
+    "I think we agree on the goal, just not on how fast to get there.",
+  ],
+  user_priya: [
+    "I'm somewhere in the middle. You both have a point about the tradeoffs.",
+    "Maybe it depends on the situation more than the principle?",
+    "What if we tried it small first and looked at what actually happens?",
+    "I like that we're all saying 'it depends'. That feels like progress.",
+  ],
+};
+const replyIndex: Record<string, number> = {};
+let userMessageCount = 0;
+
+const openerFor = (members: RoomMember[]) => {
+  const furthest = [...members].sort((a, b) => Math.abs(b.position - 50) - Math.abs(a.position - 50))[0];
+  return `Everyone here wants to get this right, even if you land in different places. ${furthest.name}, what's the strongest reason behind your view?`;
+};
+
+const demoOpener =
+  "Everyone here agrees AI tools are already changing how code gets written. Jordan, what would it take for you to trust code you didn't write?";
 
 export const fakeRooms: Room[] = [
   {
@@ -14,35 +58,59 @@ export const fakeRooms: Room[] = [
     slot: Date.now() - 2 * 60_000,
     status: "live",
     endsAt: Date.now() + 8 * 60_000,
-    opener: "Everyone here agrees AI tools are already changing how code gets written. Jordan, what would it take for you to trust code you didn't write?",
-    members: [
-      { userId: "user_maya", name: "Maya", position: 12, band: "A", summarizesUserId: "user_jordan" },
-      { userId: "user_jordan", name: "Jordan", position: 88, band: "B", summarizesUserId: "user_priya" },
-      { userId: "user_priya", name: "Priya", position: 45, band: "M", summarizesUserId: "user_sam" },
-      { userId: "user_sam", name: "Sam", position: 70, band: "B", summarizesUserId: "user_leo" },
-      { userId: "user_leo", name: "Leo", position: 30, band: "A", summarizesUserId: "user_maya" },
-    ],
+    opener: demoOpener,
+    members: FAKE_MEMBERS.map((m) => ({ ...m })),
   },
 ];
 
 export const fakeMessages: RoomMessage[] = [
-  { _id: "msg_1", _creationTime: Date.now() - 120_000, roomId: "room_demo", userId: null, isJudge: true, flagged: false, text: fakeRooms[0].opener! },
+  { _id: "msg_1", _creationTime: Date.now() - 120_000, roomId: "room_demo", userId: null, isJudge: true, flagged: false, text: demoOpener },
   { _id: "msg_2", _creationTime: Date.now() - 90_000, roomId: "room_demo", userId: "user_jordan", isJudge: false, flagged: false, text: "Honestly, tests. If the tests are good I care less who wrote it." },
   { _id: "msg_3", _creationTime: Date.now() - 60_000, roomId: "room_demo", userId: "user_maya", isJudge: false, flagged: false, text: "But who writes the tests? If that's AI too, it's checking its own homework." },
   { _id: "msg_4", _creationTime: Date.now() - 30_000, roomId: "room_demo", userId: "user_priya", isJudge: false, flagged: false, text: "I think it depends on the stage. A prototype is different from a bank's backend." },
 ];
 
+const post = (roomId: Id, userId: Id | null, text: string) => {
+  fakeMessages.push({ _id: newId("msg"), _creationTime: Date.now(), roomId, userId, isJudge: userId === null, flagged: false, text });
+  changed();
+};
+
+function tick() {
+  const now = Date.now();
+  for (const room of fakeRooms) {
+    if ((room.status === "waiting" || room.status === "rolled") && now >= room.slot) {
+      const positions = room.members.map((m) => m.position);
+      const canStart = room.members.length >= 3 && Math.max(...positions) - Math.min(...positions) >= 40;
+      if (canStart) {
+        room.status = "live";
+        room.endsAt = now + CHAT_MS;
+        room.opener = openerFor(room.members);
+        post(room._id, null, room.opener);
+      } else {
+        room.status = "rolled";
+        room.slot += SLOT_MS;
+        changed();
+      }
+    } else if (room.status === "live" && room.endsAt && now >= room.endsAt) {
+      room.status = "summarizing";
+      room.agreementLine = "You all agreed the tradeoffs are real, even where you landed differently.";
+      post(room._id, null, `Time's up. ${room.agreementLine}`);
+    }
+  }
+}
+setInterval(tick, 1000);
+
 export function nextRoom({ topicId }: { topicId: Id }): NextRoom {
   const slot = nextSlot();
-  const joined = fakeRooms.filter((r) => r.topicId === topicId && r.slot === slot);
-  return { slot, joinedCount: joined.reduce((n, r) => n + r.members.length, 0) + 3 };
+  const room = fakeRooms.find((r) => r.topicId === topicId && r.slot === slot && r.status === "waiting");
+  return { slot, joinedCount: room ? room.members.length : FAKE_MEMBERS.length };
 }
 
 export async function joinRoom({ userId, topicId }: { userId: Id; topicId: Id }): Promise<Id> {
   const slot = nextSlot();
-  let room = fakeRooms.find((r) => r.topicId === topicId && r.slot === slot && r.members.length < 6);
+  let room = fakeRooms.find((r) => r.topicId === topicId && r.slot === slot && r.status === "waiting" && r.members.length < 6);
   if (!room) {
-    room = { _id: newId("room"), topicId, slot, status: "waiting", members: [] };
+    room = { _id: newId("room"), topicId, slot, status: "waiting", members: FAKE_MEMBERS.map((m) => ({ ...m })) };
     fakeRooms.push(room);
   }
   if (!room.members.some((m) => m.userId === userId)) {
@@ -62,8 +130,31 @@ export function roomMessages({ roomId }: { roomId: Id }): RoomMessage[] {
 }
 
 export async function sendMessage({ roomId, userId, text }: { roomId: Id; userId: Id; text: string }): Promise<null> {
-  fakeMessages.push({ _id: newId("msg"), _creationTime: Date.now(), roomId, userId, isJudge: false, flagged: false, text: text.trim() });
-  changed();
+  const room = getRoom({ roomId });
+  if (!room || room.status !== "live") return null;
+  post(roomId, userId, text.trim().slice(0, 500));
+  userMessageCount++;
+
+  const others = room.members.filter((m) => REPLIES[m.userId] && m.userId !== userId);
+  const replier = others[userMessageCount % others.length];
+  if (replier) {
+    setTimeout(() => {
+      if (room.status !== "live") return;
+      const lines = REPLIES[replier.userId];
+      const i = replyIndex[replier.userId] ?? 0;
+      replyIndex[replier.userId] = i + 1;
+      post(roomId, replier.userId, lines[i % lines.length]);
+    }, 1500 + Math.random() * 1500);
+  }
+
+  if (userMessageCount % 3 === 0) {
+    const you = room.members.find((m) => m.userId === userId);
+    const other = others[(userMessageCount + 1) % others.length];
+    setTimeout(() => {
+      if (room.status !== "live" || !other) return;
+      post(roomId, null, `${other.name}, before you answer, can you put ${you?.name ?? "their"}'s point in your own words?`);
+    }, 4500);
+  }
   return null;
 }
 

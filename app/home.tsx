@@ -1,43 +1,62 @@
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useFeed, useUser } from "../src/data";
-import { todayString } from "../src/date";
-import { clearUserId, getSavedUserId } from "../src/session";
+import { Bell } from "../src/components/Bell";
+import { SplitBar } from "../src/components/SplitBar";
+import { type Topic, useFeed, useNextRoom, useNotifications, useTopicStats, useUser } from "../src/data";
+import { formatTime, todayString } from "../src/date";
+import { clearUserId, useSavedUserId } from "../src/session";
 import { card, colors, spacing, type } from "../src/theme";
 
-export default function Home() {
-  const [userId, setUserId] = useState<string | null>(null);
-  useEffect(() => {
-    getSavedUserId().then(setUserId);
-  }, []);
+function TopicCard({ topic }: { topic: Topic }) {
+  const stats = useTopicStats(topic._id);
+  const next = useNextRoom(topic._id);
+  return (
+    <Pressable
+      onPress={() => router.push(`/topic/${topic._id}`)}
+      style={({ pressed }) => [card, styles.card, topic.isShared && styles.shared, pressed && styles.pressed]}
+    >
+      <Text style={[type.label, topic.isShared && styles.sharedLabel]}>
+        {topic.isShared ? "Topic of the day" : topic.category.charAt(0).toUpperCase() + topic.category.slice(1)}
+      </Text>
+      <Text style={styles.question}>{topic.question}</Text>
+      <SplitBar stats={stats} sideA={topic.sideA} sideB={topic.sideB} />
+      <Text style={styles.next}>{next ? `Next room ${formatTime(next.slot)} · ${next.joinedCount} joined` : " "}</Text>
+    </Pressable>
+  );
+}
 
+export default function Home() {
+  const userId = useSavedUserId();
   const user = useUser(userId);
   const topics = useFeed(userId, todayString());
+  const notifications = useNotifications(userId);
+  const unread = notifications?.filter((n) => !n.read).length ?? 0;
 
-  async function signOut() {
+  async function startOver() {
     await clearUserId();
     router.replace("/onboarding");
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={type.question}>{user ? `Good morning, ${user.name}` : "Good morning"}</Text>
-        <Text style={styles.muted}>Home is a placeholder for now. Here&apos;s today&apos;s feed.</Text>
+        <View style={styles.header}>
+          <View style={styles.flex}>
+            <Text style={type.label}>{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</Text>
+            <Text style={type.question}>{user ? `Good morning, ${user.name}` : "Good morning"}</Text>
+          </View>
+          <Bell count={unread} onPress={() => router.push("/inbox")} />
+        </View>
+
         {topics === undefined ? (
           <ActivityIndicator color={colors.accent} />
         ) : (
-          topics.map((t) => (
-            <View key={t._id} style={card}>
-              <Text style={type.label}>{t.isShared ? "TOPIC OF THE DAY" : t.category.toUpperCase()}</Text>
-              <Text style={[type.title, styles.question]}>{t.question}</Text>
-            </View>
-          ))
+          topics.map((t) => <TopicCard key={t._id} topic={t} />)
         )}
-        <Pressable onPress={signOut} hitSlop={12} style={styles.signOut}>
+
+        <Pressable onPress={startOver} hitSlop={12} style={styles.startOver}>
           <Text style={styles.muted}>Start over</Text>
         </Pressable>
       </ScrollView>
@@ -48,7 +67,14 @@ export default function Home() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.md },
+  header: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, marginBottom: spacing.sm },
+  flex: { flex: 1, gap: spacing.xs },
+  card: { gap: spacing.md },
+  shared: { borderColor: colors.accent, borderWidth: 1.5 },
+  sharedLabel: { color: colors.accent },
+  pressed: { opacity: 0.8 },
+  question: { fontSize: 22, lineHeight: 28, fontWeight: "700", color: colors.text },
+  next: { fontSize: 14, color: colors.muted, fontWeight: "500" },
   muted: { fontSize: 16, color: colors.muted },
-  question: { marginTop: spacing.sm },
-  signOut: { alignSelf: "center", paddingVertical: spacing.lg },
+  startOver: { alignSelf: "center", paddingVertical: spacing.lg },
 });
