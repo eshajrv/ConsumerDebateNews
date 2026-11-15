@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import type { FunctionReference } from "convex/server";
 import { useEffect, useSyncExternalStore } from "react";
 
-import { type DataArea, FAKE, ROOM_MODES } from "../config";
+import { type DataArea, FAKE } from "../config";
 import { pacificDate, useNow } from "../date";
 import * as feed from "../fake/feed";
 import * as leaderboard from "../fake/leaderboard";
@@ -55,8 +55,6 @@ const useLinksAction = actionHook("links");
 
 const BRIDGE_ROOMS_TO_FAKE_SUMMARIES = !FAKE.rooms && FAKE.summaries;
 
-const withMode = <A extends Args>(args: A, mode?: RoomMode) => (ROOM_MODES && mode ? { ...args, mode } : args);
-
 const skipUnless = <A extends Args>(ready: unknown, args: A): A | "skip" => (ready ? args : "skip");
 
 export const useOnboard = () => useUsersAction(api.users.onboard, users.onboard);
@@ -69,12 +67,9 @@ export const useTopicStats = (topicId: Id) => useFeedData(api.dailyTopics.stats,
 
 export const useNextRoom = (topicId: Id, mode?: RoomMode) => {
   const minute = Math.floor(useNow(15_000) / 60_000) * 60_000;
-  return useRoomsData(api.rooms.next, withMode({ topicId, now: minute }, mode), rooms.nextRoom);
+  return useRoomsData(api.rooms.next, mode ? { topicId, now: minute, mode } : { topicId, now: minute }, rooms.nextRoom);
 };
-export const useJoinRoom = () => {
-  const join = useRoomsAction(api.rooms.join, rooms.joinRoom);
-  return ({ mode, ...args }: { userId: Id; topicId: Id; allowSpectators?: boolean; mode?: RoomMode }) => join(withMode(args, mode));
-};
+export const useJoinRoom = () => useRoomsAction(api.rooms.join, rooms.joinRoom);
 export const useRoom = (roomId: Id) => {
   const room = useRoomsData(api.rooms.get, { roomId }, rooms.getRoom);
   useEffect(() => {
@@ -85,6 +80,8 @@ export const useRoom = (roomId: Id) => {
 export const useRoomMessages = (roomId: Id) => useRoomsData(api.rooms.messages, { roomId }, rooms.roomMessages);
 export const useSendMessage = () => useRoomsAction(api.rooms.send, rooms.sendMessage);
 export const useLiveRooms = (topicId?: Id) => useRoomsData(api.rooms.live, topicId ? { topicId } : {}, rooms.liveRooms);
+export const useSetPositionAfter = () => useRoomsAction(api.rooms.setPositionAfter, rooms.setPositionAfter);
+export const useMindsMoved = (roomId: Id) => useRoomsData(api.rooms.mindsMoved, { roomId }, rooms.mindsMoved);
 
 export const useRoomSummaries = (roomId: Id, userId: Id | null) =>
   useSummariesData(api.summaries.forRoom, skipUnless(userId, { roomId, userId: userId! }), summaries.summariesForRoom);

@@ -23,6 +23,7 @@ import type * as memory from "../memory.js";
 import type * as notifications from "../notifications.js";
 import type * as notify from "../notify.js";
 import type * as rooms from "../rooms.js";
+import type * as stats from "../stats.js";
 import type * as summaries from "../summaries.js";
 import type * as users from "../users.js";
 
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   notify: typeof notify;
   rooms: typeof rooms;
+  stats: typeof stats;
   summaries: typeof summaries;
   users: typeof users;
 }>;

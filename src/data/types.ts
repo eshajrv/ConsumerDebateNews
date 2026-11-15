@@ -17,6 +17,8 @@ export type User = {
   insight?: string;
   phone?: string;
   interests?: string[];
+  knowWell?: string[];
+  wantToLearn?: string[];
   notifyVia?: NotifyVia;
   totalPoints?: number;
 };
@@ -39,7 +41,7 @@ export type Topic = {
 
 export type TopicStats = { total: number; leanA: number; leanB: number; talkingNow: number };
 
-export type RoomMode = "oneOnOne" | "group";
+export type RoomMode = "duo" | "group";
 
 export type NextRoom = { slot: number; joinedCount: number };
 
@@ -77,6 +79,24 @@ export type RoomMessage = {
   text: string;
   kind: RoomMessageKind;
   flagged?: boolean;
+};
+
+export type MindsMovedMember = {
+  userId: Id<"users">;
+  name: string;
+  before: number;
+  after: number | null; // their slider answer
+  shift: number | null;
+  aiAfter: number | null; // AI estimate, used when they skip the slider
+  reason: string | null;
+};
+
+export type MindsMoved = {
+  members: MindsMovedMember[];
+  movedCount: number;
+  total: number;
+  averageGapBefore: number;
+  averageGapAfter: number;
 };
 
 export type LiveRoom = {
@@ -133,7 +153,9 @@ export type MyRank = { rank: number | null; points: number };
 
 export type OnboardArgs = {
   name: string;
-  interests: Interest[];
+  interests?: Interest[]; // kept equal to wantToLearn
+  knowWell: Interest[];
+  wantToLearn: Interest[];
   notifyVia: NotifyVia;
   phone?: string;
 };

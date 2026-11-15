@@ -12,7 +12,7 @@ import { useSavedUserId } from "../../src/session";
 import { colors, radius, spacing, type } from "../../src/theme";
 
 const OPTIONS: { mode: RoomMode; title: string; subtitle: string }[] = [
-  { mode: "oneOnOne", title: "1-on-1", subtitle: "Talk with one person who sees it differently" },
+  { mode: "duo", title: "1-on-1", subtitle: "Talk with one person who sees it differently" },
   { mode: "group", title: "Group", subtitle: "Up to 6 people across the spectrum" },
 ];
 

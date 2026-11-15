@@ -64,6 +64,7 @@ export const joinRoom = defineTool({
   name: 'joinRoom',
   description:
     'Put the person in the next room for a topic. Returns { roomId, slot, link, code }. Only call after they say yes.',
-  input: Schema.Struct({ topicId: Schema.String }),
-  execute: (input, ctx) => convex(ctx, '/keiki/join', { phone: ctx.phone, topicId: input.topicId }),
+  input: Schema.Struct({ topicId: Schema.String, mode: Schema.optional(Schema.Literal('duo', 'group')) }),
+  execute: (input, ctx) =>
+    convex(ctx, '/keiki/join', { phone: ctx.phone, topicId: input.topicId, mode: input.mode }),
 })

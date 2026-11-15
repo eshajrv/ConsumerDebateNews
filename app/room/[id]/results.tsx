@@ -4,9 +4,18 @@ import { ActivityIndicator, Animated, Easing, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../../src/components/Button";
-import { useMyRank, useRoomSummaries, useUser } from "../../../src/data";
+import { useMindsMoved, useMyRank, useRoom, useRoomSummaries, useUser } from "../../../src/data";
 import { useSavedUserId } from "../../../src/session";
 import { card, colors, radius, spacing, type } from "../../../src/theme";
+
+// "You moved 12 points toward <side>" / "toward the middle" / "You held your ground"
+function movedLine(before: number, after: number, sideA: string, sideB: string): string {
+  const n = Math.abs(after - before);
+  if (n < 5) return "You held your ground.";
+  const sameSide = (before - 50) * (after - 50) >= 0;
+  const toward = sameSide && Math.abs(after - 50) < Math.abs(before - 50) ? "the middle" : after < before ? `"${sideA}"` : `"${sideB}"`;
+  return `You moved ${n} points toward ${toward}.`;
+}
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -43,6 +52,8 @@ export default function Results() {
   const data = useRoomSummaries(id, userId);
   const user = useUser(userId);
   const rank = useMyRank(userId, "today");
+  const room = useRoom(id);
+  const minds = useMindsMoved(id);
   const [count] = useState(() => new Animated.Value(0));
   const [bounce] = useState(() => new Animated.Value(1));
   const [shown, setShown] = useState(0);
@@ -90,6 +101,9 @@ export default function Results() {
   }
 
   const bonus = points - rating * 10;
+  const mine = minds?.members.find((m) => m.userId === userId);
+  const endPosition = mine ? (mine.after ?? mine.aiAfter) : null;
+  const moved = mine && endPosition !== null && room?.topic ? movedLine(mine.before, endPosition, room.topic.sideA, room.topic.sideB) : null;
   const goodFaithChange = (rating - 3) * 2;
 
   return (
@@ -103,6 +117,18 @@ export default function Results() {
             {user.totalPoints ?? 0} points total{rank ? ` · ${rank.points} today` : ""}
           </Text>
         </View>
+
+        {moved && (
+          <View style={[card, styles.breakdown]}>
+            <Text style={type.label}>Did your mind move?</Text>
+            <Text style={styles.movedText}>{moved}</Text>
+            {minds && minds.total > 1 && (
+              <Text style={styles.muted}>
+                {minds.movedCount} of {minds.total} in your room moved 10+ points.
+              </Text>
+            )}
+          </View>
+        )}
 
         <View style={[card, styles.breakdown]}>
           <Row label={`${rating} star${rating === 1 ? "" : "s"} × 10`} value={`+${rating * 10}`} />
@@ -144,6 +170,7 @@ const styles = StyleSheet.create({
   muted: { fontSize: 16, color: colors.muted, textAlign: "center" },
   total: { fontSize: 15, fontWeight: "700", color: colors.text, marginTop: spacing.xs },
   breakdown: { gap: spacing.sm },
+  movedText: { fontSize: 20, fontWeight: "700", color: colors.text },
   row: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md },
   rowLabel: { ...type.body, flex: 1 },
   rowValue: { ...type.body, fontWeight: "700", fontVariant: ["tabular-nums"] },
