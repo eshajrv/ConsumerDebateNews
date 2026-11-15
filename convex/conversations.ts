@@ -2,7 +2,7 @@
 // Chat, the 5-minute timer, spectating, and reactions.
 import { internalMutation, mutation, query, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 
 export const get = query({
@@ -32,8 +32,8 @@ export const send = mutation({
   args: { conversationId: v.id("conversations"), userId: v.id("users"), text: v.string() },
   handler: async (ctx, { conversationId, userId, text }) => {
     const c = await ctx.db.get(conversationId);
-    if (!c || c.status !== "live") throw new Error("This conversation has ended");
-    if (userId !== c.userA && userId !== c.userB) throw new Error("Only participants can send messages");
+    if (!c || c.status !== "live") throw new ConvexError("This conversation has ended.");
+    if (userId !== c.userA && userId !== c.userB) throw new ConvexError("Only the two people in this chat can send messages.");
     const clean = text.trim().slice(0, 500);
     if (!clean) return;
     await ctx.db.insert("messages", { conversationId, userId, text: clean });
@@ -58,7 +58,7 @@ export const endEarly = mutation({
   args: { conversationId: v.id("conversations"), userId: v.id("users") },
   handler: async (ctx, { conversationId, userId }) => {
     const c = await ctx.db.get(conversationId);
-    if (!c || (userId !== c.userA && userId !== c.userB)) throw new Error("Not your conversation");
+    if (!c || (userId !== c.userA && userId !== c.userB)) throw new ConvexError("This isn't your conversation.");
     await endConversation(ctx, conversationId);
   },
 });
@@ -131,7 +131,7 @@ export const react = mutation({
   },
   handler: async (ctx, args) => {
     const c = await ctx.db.get(args.conversationId);
-    if (!c || !c.allowSpectators) throw new Error("This conversation isn't open to spectators");
+    if (!c || !c.allowSpectators) throw new ConvexError("This conversation isn't open to watchers.");
     await ctx.db.insert("reactions", { ...args, emoji: args.emoji.slice(0, 8) });
   },
 });
