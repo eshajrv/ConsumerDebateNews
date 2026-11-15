@@ -136,3 +136,5 @@ const styles = StyleSheet.create({
   insightText: { fontSize: 18, lineHeight: 24, fontWeight: "600", color: colors.text },
   footer: { padding: spacing.lg, paddingTop: spacing.sm },
 });
+
+export { RoomErrorBoundary as ErrorBoundary } from "../../../src/components/RoomErrorBoundary";

@@ -157,3 +157,5 @@ const styles = StyleSheet.create({
   sendOff: { opacity: 0.4 },
   sendText: { color: colors.onAccent, fontSize: 16, fontWeight: "700" },
 });
+
+export { RoomErrorBoundary as ErrorBoundary } from "../../../src/components/RoomErrorBoundary";

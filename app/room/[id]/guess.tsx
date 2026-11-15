@@ -204,3 +204,5 @@ const styles = StyleSheet.create({
   agreementText: { fontSize: 16, lineHeight: 22, color: colors.text, fontStyle: "italic" },
   footer: { padding: spacing.lg, paddingTop: spacing.sm },
 });
+
+export { RoomErrorBoundary as ErrorBoundary } from "../../../src/components/RoomErrorBoundary";
