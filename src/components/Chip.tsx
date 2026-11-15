@@ -2,14 +2,15 @@ import { Pressable, StyleSheet, Text } from "react-native";
 
 import { colors, radius, spacing } from "../theme";
 
-type Props = { label: string; selected: boolean; onPress: () => void };
+type Props = { label: string; selected: boolean; onPress?: () => void };
 
 export function Chip({ label, selected, onPress }: Props) {
   return (
     <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected }}
+      accessibilityRole={onPress ? "checkbox" : "text"}
+      accessibilityState={onPress ? { checked: selected } : undefined}
       onPress={onPress}
+      disabled={!onPress}
       style={[styles.chip, selected && styles.selected]}
     >
       <Text style={[styles.text, selected && styles.selectedText]}>{label}</Text>

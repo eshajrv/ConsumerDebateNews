@@ -5,7 +5,7 @@ const SCHEME = "practify://";
 
 // Routes that only make sense for someone who has onboarded. A deep link to one of these on a
 // phone with no saved user goes through onboarding first.
-export const NEEDS_USER = /^\/(home|inbox|leaderboard|topic|room)(\/|$)/;
+export const NEEDS_USER = /^\/(home|inbox|leaderboard|profile|topic|room)(\/|$)/;
 
 export function openLink(link: string) {
   if (link.startsWith(SCHEME)) router.push(`/${link.slice(SCHEME.length)}` as Href);
