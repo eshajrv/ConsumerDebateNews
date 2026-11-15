@@ -4,13 +4,15 @@ import { useSyncExternalStore } from "react";
 
 import { USE_FAKE_DATA } from "../config";
 import * as feed from "../fake/feed";
+import * as leaderboard from "../fake/leaderboard";
+import * as links from "../fake/links";
 import * as notifications from "../fake/notifications";
 import * as rooms from "../fake/rooms";
 import { getVersion, subscribe } from "../fake/store";
 import * as summaries from "../fake/summaries";
 import * as users from "../fake/users";
 import { api } from "./api";
-import type { Id } from "./types";
+import type { Id, LeaderboardPeriod } from "./types";
 
 export * from "./types";
 
@@ -63,3 +65,9 @@ export const useRateSummary = () => useAction(api.summaries.rate, summaries.rate
 export const useNotifications = (userId: Id | null) =>
   useData(api.notifications.mine, skipUnless(userId, { userId: userId! }), notifications.myNotifications);
 export const useMarkRead = () => useAction(api.notifications.markRead, notifications.markRead);
+
+export const useRedeemLink = () => useAction(api.links.redeem, links.redeem);
+
+export const useLeaderboard = (period: LeaderboardPeriod) => useData(api.leaderboard.top, { period }, leaderboard.top);
+export const useMyRank = (userId: Id | null, period: LeaderboardPeriod) =>
+  useData(api.leaderboard.myRank, skipUnless(userId, { userId: userId!, period }), leaderboard.myRank);
