@@ -6,7 +6,7 @@ const today = todayString();
 
 export const fakeTopics: Topic[] = [
   {
-    _id: "topic_ai_code", date: today, category: "tech", isShared: true,
+    _id: "topic_ai_code", date: today, _creationTime: 0, status: "live", category: "tech", isShared: true,
     question: "Should startups let AI write most of their code?",
     sideA: "Yes, ship faster", sideB: "No, keep humans writing it",
     brief: "AI coding tools now write a large share of code at many startups. Founders say it lets tiny teams ship like big ones; critics worry about bugs, security, and junior engineers never learning the craft.",
@@ -15,7 +15,7 @@ export const fakeTopics: Topic[] = [
     sources: ["The Verge", "Wall Street Journal"],
   },
   {
-    _id: "topic_campus_phones", date: today, category: "campus", isShared: false,
+    _id: "topic_campus_phones", date: today, _creationTime: 0, status: "live", category: "campus", isShared: false,
     question: "Should lecture halls ban phones and laptops?",
     sideA: "Ban them", sideB: "Let students choose",
     brief: "Several universities are piloting device-free lectures after studies linked multitasking to lower grades.",
@@ -24,7 +24,7 @@ export const fakeTopics: Topic[] = [
     sources: ["Inside Higher Ed", "The Daily Californian"],
   },
   {
-    _id: "topic_min_wage", date: today, category: "politics", isShared: false,
+    _id: "topic_min_wage", date: today, _creationTime: 0, status: "live", category: "politics", isShared: false,
     question: "Should the federal minimum wage rise to $17?",
     sideA: "Raise it", sideB: "Leave it to states",
     brief: "A new bill would raise the federal minimum wage to $17 over five years. It has been $7.25 since 2009.",
@@ -33,7 +33,7 @@ export const fakeTopics: Topic[] = [
     sources: ["NPR", "Fox News", "Reuters"],
   },
   {
-    _id: "topic_nil", date: today, category: "sports", isShared: false,
+    _id: "topic_nil", date: today, _creationTime: 0, status: "live", category: "sports", isShared: false,
     question: "Should college athletes be paid salaries by their schools?",
     sideA: "Pay them", sideB: "Keep them students",
     brief: "After NIL deals became legal, a court settlement now lets schools share revenue directly with athletes.",
@@ -42,7 +42,7 @@ export const fakeTopics: Topic[] = [
     sources: ["ESPN", "The Athletic"],
   },
   {
-    _id: "topic_ai_art", date: today, category: "culture", isShared: false,
+    _id: "topic_ai_art", date: today, _creationTime: 0, status: "live", category: "culture", isShared: false,
     question: "Should AI-generated art be allowed in art competitions?",
     sideA: "Allow it", sideB: "Keep it human-made",
     brief: "A state fair's top prize went to an AI-assisted image, reigniting debate about what counts as art.",
@@ -51,7 +51,7 @@ export const fakeTopics: Topic[] = [
     sources: ["New York Times", "Artnet"],
   },
   {
-    _id: "topic_social_age", date: today, category: "tech", isShared: false,
+    _id: "topic_social_age", date: today, _creationTime: 0, status: "live", category: "tech", isShared: false,
     question: "Should social media require users to be 16 or older?",
     sideA: "Set the limit at 16", sideB: "Leave it to parents",
     brief: "Several countries have passed laws barring under-16s from social media; US states are considering similar rules.",

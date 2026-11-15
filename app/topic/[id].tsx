@@ -8,14 +8,14 @@ import { Button } from "../../src/components/Button";
 import { SplitBar } from "../../src/components/SplitBar";
 import { StanceSlider } from "../../src/components/StanceSlider";
 import { useFeed, useJoinRoom, useNextRoom, useSetStance, useTopicStats } from "../../src/data";
-import { formatTime, todayString } from "../../src/date";
+import { formatTime, pacificDate, todayString } from "../../src/date";
 import { useSavedUserId } from "../../src/session";
 import { colors, radius, spacing, type } from "../../src/theme";
 
 export default function TopicScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = useSavedUserId();
-  const topics = useFeed(userId, todayString());
+  const topics = useFeed(userId, pacificDate());
   const topic = topics?.find((t) => t._id === id);
   const stats = useTopicStats(id);
   const next = useNextRoom(id);

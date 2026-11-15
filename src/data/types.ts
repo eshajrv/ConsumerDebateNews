@@ -1,25 +1,31 @@
-export type Id = string;
+// Shapes returned by convex/ (users.get, feed.forUser, rooms.*, dailyTopics.stats).
+// Id<"table"> documents which table an id belongs to; on the wire every id is a string.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export type Id<Table extends string = string> = string;
 
 export type Interest = "tech" | "politics" | "culture" | "sports" | "campus";
 export type NotifyVia = "app" | "text";
 export type Band = "A" | "M" | "B";
 
 export type User = {
-  _id: Id;
+  _id: Id<"users">;
+  _creationTime: number;
   name: string;
-  interests: Interest[];
-  notifyVia: NotifyVia;
-  phone?: string;
   goodFaithScore: number;
   streak: number;
-  totalPoints: number;
+  lastActiveDate?: string;
   insight?: string;
+  phone?: string;
+  interests?: string[];
+  notifyVia?: NotifyVia;
+  totalPoints?: number;
 };
 
 export type Topic = {
-  _id: Id;
+  _id: Id<"topics">;
+  _creationTime: number;
   date: string;
-  category: Interest;
+  category: string;
   question: string;
   sideA: string;
   sideB: string;
@@ -27,7 +33,8 @@ export type Topic = {
   sideAView: string;
   sideBView: string;
   sources: string[];
-  isShared: boolean;
+  status: string;
+  isShared?: boolean;
 };
 
 export type TopicStats = { total: number; leanA: number; leanB: number; talkingNow: number };
@@ -37,40 +44,51 @@ export type NextRoom = { slot: number; joinedCount: number };
 export type RoomStatus = "waiting" | "live" | "rolled" | "summarizing" | "done";
 
 export type RoomMember = {
-  userId: Id;
+  userId: Id<"users">;
   name: string;
   position: number;
   band: Band;
-  summarizesUserId?: Id;
+  circleOrder?: number;
+  summarizesUserId?: Id<"users">;
 };
 
 export type Room = {
-  _id: Id;
-  topicId: Id;
-  slot: number;
+  _id: Id<"rooms">;
+  _creationTime: number;
+  topicId: Id<"topics">;
+  slotStart: number;
   status: RoomStatus;
   endsAt?: number;
-  opener?: string;
   agreementLine?: string;
+  allowSpectators?: boolean;
+  topic: Topic | null;
   members: RoomMember[];
 };
 
+export type RoomMessageKind = "user" | "opener" | "nudge" | "flag" | "closing";
+
 export type RoomMessage = {
-  _id: Id;
+  _id: Id<"roomMessages">;
   _creationTime: number;
-  roomId: Id;
-  userId: Id | null;
-  isJudge: boolean;
-  flagged: boolean;
+  roomId: Id<"rooms">;
+  userId?: Id<"users">;
   text: string;
+  kind: RoomMessageKind;
+  flagged?: boolean;
 };
 
-export type LiveRoom = { _id: Id; topicId: Id; question: string; memberCount: number; endsAt: number };
+export type LiveRoom = {
+  _id: Id<"rooms">;
+  topicId: Id<"topics">;
+  question: string;
+  endsAt?: number;
+  members: { name: string; position: number; band: Band }[];
+};
 
 export type Summary = {
-  _id: Id;
-  authorId: Id;
-  aboutUserId: Id;
+  _id: Id<"summaries">;
+  authorId: Id<"users">;
+  aboutUserId: Id<"users">;
   ready: boolean;
   options: [string, string] | null;
   guessed: boolean;
@@ -80,9 +98,9 @@ export type Summary = {
 };
 
 export type AppNotification = {
-  _id: Id;
+  _id: Id<"notifications">;
   _creationTime: number;
-  userId: Id;
+  userId: Id<"users">;
   message: string;
   link?: string;
   read: boolean;
@@ -90,7 +108,7 @@ export type AppNotification = {
 
 export type LeaderboardPeriod = "today" | "week";
 
-export type LeaderboardEntry = { rank: number; userId: Id; name: string; points: number; goodFaithScore: number };
+export type LeaderboardEntry = { rank: number; userId: Id<"users">; name: string; points: number; goodFaithScore: number };
 
 export type OnboardArgs = {
   name: string;

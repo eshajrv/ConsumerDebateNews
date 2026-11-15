@@ -6,7 +6,7 @@ import { Bell } from "../src/components/Bell";
 import { SplitBar } from "../src/components/SplitBar";
 import { Trophy } from "../src/components/Trophy";
 import { type Topic, useFeed, useNextRoom, useNotifications, useTopicStats, useUser } from "../src/data";
-import { formatTime, todayString } from "../src/date";
+import { formatTime, pacificDate } from "../src/date";
 import { clearUserId, useSavedUserId } from "../src/session";
 import { card, colors, spacing, type } from "../src/theme";
 
@@ -31,7 +31,7 @@ function TopicCard({ topic }: { topic: Topic }) {
 export default function Home() {
   const userId = useSavedUserId();
   const user = useUser(userId);
-  const topics = useFeed(userId, todayString());
+  const topics = useFeed(userId, pacificDate());
   const notifications = useNotifications(userId);
   const unread = notifications?.filter((n) => !n.read).length ?? 0;
 

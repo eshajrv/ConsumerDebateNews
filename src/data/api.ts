@@ -32,8 +32,8 @@ export const api = {
     stats: query<{ topicId: Id }, TopicStats>("dailyTopics:stats"),
   },
   rooms: {
-    next: query<{ topicId: Id }, NextRoom>("rooms:next"),
-    join: mutation<{ userId: Id; topicId: Id }, Id>("rooms:join"),
+    next: query<{ topicId: Id; now: number }, NextRoom>("rooms:next"),
+    join: mutation<{ userId: Id; topicId: Id; allowSpectators?: boolean }, Id>("rooms:join"),
     get: query<{ roomId: Id }, Room | null>("rooms:get"),
     messages: query<{ roomId: Id }, RoomMessage[]>("rooms:messages"),
     send: mutation<{ roomId: Id; userId: Id; text: string }, null>("rooms:send"),

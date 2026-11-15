@@ -34,7 +34,8 @@ export default function GroupChat() {
   }
 
   const remaining = (room.endsAt ?? now) - now;
-  const shown = messages.filter((m) => !(m.isJudge && m.text === room.opener));
+  const opener = messages.find((m) => m.kind === "opener");
+  const shown = messages.filter((m) => m !== opener);
   const memberById = new Map(room.members.map((m) => [m.userId, m]));
 
   async function submit() {
@@ -56,10 +57,10 @@ export default function GroupChat() {
           <Text style={[styles.timer, remaining <= 120_000 && { color: colors.sideA }]}>{formatCountdown(remaining)}</Text>
         </View>
 
-        {room.opener && (
+        {opener && (
           <View style={styles.pinned}>
             <Text style={styles.judgeName}>Judge</Text>
-            <Text style={styles.pinnedText}>{room.opener}</Text>
+            <Text style={styles.pinnedText}>{opener.text}</Text>
           </View>
         )}
 
@@ -74,7 +75,7 @@ export default function GroupChat() {
           contentContainerStyle={styles.messages}
           onContentSizeChange={() => list.current?.scrollToEnd({ animated: true })}
           renderItem={({ item }) => {
-            if (item.isJudge) {
+            if (item.kind !== "user") {
               return (
                 <View style={styles.judge}>
                   <Text style={styles.judgeName}>Judge</Text>
