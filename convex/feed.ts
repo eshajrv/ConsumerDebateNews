@@ -1,9 +1,10 @@
 // convex/feed.ts
-// Each person's daily feed: the shared topic first, then 3 of the other 9.
+// Each person's daily feed: the shared topic first, then 2 topics they want to learn about
+// and 1 from a category outside both of their lists.
 // Personalization picks WHICH topics you see, never which side: stances are never used here.
 //   - feed.rank (action) asks Supermemory what the user engages with, has Claude order the
 //     9 non-shared topics, and saves that order for today.
-//   - feed.forUser uses the saved order if there is one, else the user's picked interests.
+//   - feed.forUser fills the slots, using the saved order within each slot if there is one.
 import { action, internalMutation, internalQuery, query, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
@@ -12,8 +13,14 @@ import { Supermemory } from "supermemory";
 import { askClaude, extractJson } from "./lib/claude";
 import { liveTopics, pacificDate } from "./dailyTopics";
 
-const PICKS_PER_USER = 3;
+const LEARN_PICKS = 2; // topics from categories the user wants to learn more about
+const STRETCH_PICKS = 1; // a topic from a category in neither of their lists
+const PICKS_PER_USER = LEARN_PICKS + STRETCH_PICKS;
 
+// The shared topic, then 2 "want to learn" topics, then 1 stretch topic.
+// A saved feed.rank order decides which topic wins within each slot; with no saved order
+// the generation order is used. A slot that can't be filled takes the best remaining topic.
+// Stances are never read here.
 export async function feedForUser(ctx: QueryCtx, userId: Id<"users">, date: string) {
   const topics = await liveTopics(ctx, date);
   const shared = topics.find((t) => t.isShared === true);
@@ -24,20 +31,34 @@ export async function feedForUser(ctx: QueryCtx, userId: Id<"users">, date: stri
     .withIndex("by_user_and_date", (q) => q.eq("userId", userId).eq("date", date))
     .unique();
 
-  let ranked: Doc<"topics">[];
+  let ranked: Doc<"topics">[] = others;
   if (saved) {
     const byId = new Map(others.map((t) => [t._id, t]));
     const inOrder = saved.topicIds.flatMap((id) => byId.get(id) ?? []);
     ranked = [...inOrder, ...others.filter((t) => !saved.topicIds.includes(t._id))];
-  } else {
-    const user = await ctx.db.get(userId);
-    const interests = new Set((user?.interests ?? []).map((i) => i.toLowerCase()));
-    const picked = (t: Doc<"topics">) => interests.has(t.category.toLowerCase());
-    ranked = [...others.filter(picked), ...others.filter((t) => !picked(t))];
   }
 
-  const top = ranked.slice(0, PICKS_PER_USER);
-  return shared ? [shared, ...top] : top;
+  const user = await ctx.db.get(userId);
+  const lower = (list?: string[]) => new Set((list ?? []).map((i) => i.toLowerCase()));
+  const learn = lower(user?.wantToLearn?.length ? user.wantToLearn : user?.interests);
+  const know = lower(user?.knowWell);
+  const cat = (t: Doc<"topics">) => t.category.toLowerCase();
+
+  const chosen: Doc<"topics">[] = [];
+  const take = (n: number, fits: (t: Doc<"topics">) => boolean) => {
+    for (const t of ranked) {
+      if (n === 0) break;
+      if (!chosen.includes(t) && fits(t)) {
+        chosen.push(t);
+        n--;
+      }
+    }
+  };
+  take(LEARN_PICKS, (t) => learn.has(cat(t)));
+  take(STRETCH_PICKS, (t) => !learn.has(cat(t)) && !know.has(cat(t)));
+  take(PICKS_PER_USER - chosen.length, () => true); // fill any empty slot
+
+  return shared ? [shared, ...chosen] : chosen;
 }
 
 export const forUser = query({
