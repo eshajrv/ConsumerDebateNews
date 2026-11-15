@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Bell } from "../src/components/Bell";
+import { Eye } from "../src/components/Eye";
 import { SplitBar } from "../src/components/SplitBar";
 import { Trophy } from "../src/components/Trophy";
 import { type Topic, useFeed, useNextRoom, useNotifications, useTopicStats, useUser } from "../src/data";
@@ -51,6 +52,7 @@ export default function Home() {
             <Text style={type.question}>{user ? `${greeting}, ${user.name}` : greeting}</Text>
           </View>
           <Trophy onPress={() => router.push("/leaderboard")} />
+          <Eye onPress={() => router.push("/watch")} />
           <Bell count={unread} onPress={() => router.push("/inbox")} />
         </View>
 
