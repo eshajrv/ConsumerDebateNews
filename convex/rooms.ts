@@ -22,7 +22,7 @@ const DAY = 24 * 60 * MINUTE;
 const FIRST_SLOT = 7 * 60; // 7:00 AM Pacific, in minutes after midnight
 const LAST_SLOT = 22 * 60; // 10:00 PM Pacific
 const MAX_MEMBERS = 6;
-const MIN_TO_START = 3;
+const MIN_TO_START = 2;
 const MIN_SPREAD = 40;
 const ROOM_MS = 10 * MINUTE;
 const NUDGE_MS = 4 * MINUTE;
@@ -214,6 +214,7 @@ export const get = query({
           band: m.band,
           circleOrder: m.circleOrder,
           summarizesUserId: m.summarizesUserId,
+          movedToRoomId: m.movedToRoomId,
         })),
       ),
     };
@@ -233,12 +234,12 @@ export const send = mutation({
   args: { roomId: v.id("rooms"), userId: v.id("users"), text: v.string() },
   handler: async (ctx, { roomId, userId, text }) => {
     const room = await ctx.db.get(roomId);
-    if (!room || room.status !== "live") throw new Error("This room isn't live");
+    if (!room || room.status !== "live") throw new ConvexError("This room isn't live right now.");
     const member = await ctx.db
       .query("roomMembers")
       .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", userId))
       .unique();
-    if (!member || member.left) throw new Error("Only room members can send messages");
+    if (!member || member.left) throw new ConvexError("Only people in this room can send messages.");
     const clean = text.trim().slice(0, 500);
     if (!clean) return;
     const messageId = await ctx.db.insert("roomMessages", { roomId, userId, text: clean, kind: "user" });
@@ -309,8 +310,8 @@ export const checkStart = internalMutation({
       return;
     }
 
-    await ctx.db.patch(roomId, { status: "rolled" });
     const slotStart = nextSlot(Math.max(Date.now(), room.slotStart));
+    const movedCount = new Map<Id<"rooms">, number>();
     for (const m of members) {
       const newRoomId = await placeInRoom(ctx, {
         userId: m.userId,
@@ -319,8 +320,12 @@ export const checkStart = internalMutation({
         allowSpectators: m.allowSpectators,
         slotStart,
       });
+      movedCount.set(newRoomId, (movedCount.get(newRoomId) ?? 0) + 1);
+      await ctx.db.patch(m._id, { movedToRoomId: newRoomId });
       await notify(ctx, m.userId, `We moved you to ${formatTime(slotStart)}`, roomLink(newRoomId));
     }
+    const movedToRoomId = [...movedCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    await ctx.db.patch(roomId, { status: "rolled", movedToRoomId });
   },
 });
 
@@ -557,5 +562,71 @@ export const setCivility = internalMutation({
         goodFaithScore: Math.max(0, Math.min(100, user.goodFaithScore + (civility - 3) * 2)),
       });
     }
+  },
+});
+
+// ---------- Minds moved ----------
+
+const MOVED = 10; // a shift of 10+ points counts as a changed mind
+
+// After the chat, each member says where they stand now
+export const setPositionAfter = mutation({
+  args: { roomId: v.id("rooms"), userId: v.id("users"), position: v.number() },
+  handler: async (ctx, { roomId, userId, position }) => {
+    const room = await ctx.db.get(roomId);
+    if (!room) throw new ConvexError("We couldn't find that room.");
+    if (room.status !== "summarizing" && room.status !== "done") {
+      throw new ConvexError("You can update where you stand once the chat ends.");
+    }
+    const member = await ctx.db
+      .query("roomMembers")
+      .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", userId))
+      .unique();
+    if (!member || member.left) throw new ConvexError("Only people in this room can do that.");
+    if (!Number.isFinite(position)) throw new ConvexError("Pick a spot on the slider.");
+    const after = Math.max(0, Math.min(100, Math.round(position)));
+    await ctx.db.patch(member._id, { positionAfter: after });
+
+    const [topic, user] = await Promise.all([ctx.db.get(room.topicId), ctx.db.get(userId)]);
+    if (!topic || !user) return;
+    await ctx.scheduler.runAfter(0, internal.memory.remember, {
+      shift: {
+        roomId,
+        userId,
+        name: user.name,
+        date: topic.date,
+        category: topic.category,
+        question: topic.question,
+        sideA: topic.sideA,
+        sideB: topic.sideB,
+        before: member.position,
+        after,
+      },
+    });
+  },
+});
+
+// Before vs after for everyone in the room. after/shift are null until a member answers.
+export const mindsMoved = query({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    const members = await Promise.all(
+      (await activeMembers(ctx, roomId)).map(async (m) => ({
+        userId: m.userId,
+        name: (await ctx.db.get(m.userId))?.name ?? "",
+        before: m.position,
+        after: m.positionAfter ?? null,
+        shift: m.positionAfter === undefined ? null : m.positionAfter - m.position,
+      })),
+    );
+    const gap = (ps: number[]) => (ps.length ? Math.max(...ps) - Math.min(...ps) : 0);
+    const answered = members.filter((m) => m.after !== null);
+    return {
+      members,
+      movedCount: answered.filter((m) => Math.abs(m.shift!) >= MOVED).length,
+      total: members.length,
+      averageGapBefore: gap(members.map((m) => m.before)),
+      averageGapAfter: gap(members.map((m) => m.after ?? m.before)),
+    };
   },
 });

@@ -129,6 +129,7 @@ export default defineSchema({
     endsAt: v.optional(v.number()), // set when live: start + 10 min
     agreementLine: v.optional(v.string()), // judge's closing line
     allowSpectators: v.optional(v.boolean()),
+    movedToRoomId: v.optional(v.id("rooms")), // set when rolled: where (most) members went
   })
     .index("by_topic_and_slotStart", ["topicId", "slotStart"])
     .index("by_status_and_slotStart", ["status", "slotStart"]),
@@ -143,6 +144,8 @@ export default defineSchema({
     summarizesUserId: v.optional(v.id("users")),
     civility: v.optional(v.number()), // 1-5, AI-rated at the end
     left: v.optional(v.boolean()),
+    movedToRoomId: v.optional(v.id("rooms")), // set when this member's room rolled
+    positionAfter: v.optional(v.number()), // "Minds moved": where they stand after the chat, 0-100
   })
     .index("by_room", ["roomId"])
     .index("by_user", ["userId"])

@@ -3,7 +3,7 @@
 // Convex mutations are transactional, so two people can't grab the same match.
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 const CONVERSATION_MS = 5 * 60 * 1000; // 5-minute conversations
 const MIN_GAP = 25; // positions must differ by at least this much (out of 100)
@@ -20,7 +20,7 @@ export const findMatch = mutation({
       .query("stances")
       .withIndex("by_user_topic", (q) => q.eq("userId", userId).eq("topicId", topicId))
       .unique();
-    if (!stance) throw new Error("Set where you stand first");
+    if (!stance) throw new ConvexError("Set where you stand first.");
 
     // Clear any earlier queue entry for this user
     const old = await ctx.db
