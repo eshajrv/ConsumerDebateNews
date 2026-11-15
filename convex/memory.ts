@@ -28,7 +28,7 @@ export const context = internalQuery({
   args: { summaryId: v.id("summaries") },
   handler: async (ctx, { summaryId }) => {
     const s = await ctx.db.get(summaryId);
-    if (!s || s.gotMeRating === undefined) return null;
+    if (!s || s.gotMeRating === undefined || !s.conversationId) return null;
     const c = await ctx.db.get(s.conversationId);
     if (!c) return null;
     const [topic, author, about] = await Promise.all([

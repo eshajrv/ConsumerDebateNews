@@ -100,12 +100,14 @@ export const rate = mutation({
     }
 
     // Conversation is done once both summaries are rated
+    const conversationId = s.conversationId;
+    if (!conversationId) return;
     const all = await ctx.db
       .query("summaries")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", s.conversationId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
       .collect();
     if (all.length === 2 && all.every((x) => x._id === summaryId || x.gotMeRating)) {
-      await ctx.db.patch(s.conversationId, { status: "done" });
+      await ctx.db.patch(conversationId, { status: "done" });
     }
   },
 });
@@ -149,13 +151,14 @@ export const contextFor = internalQuery({
   args: { summaryId: v.id("summaries") },
   handler: async (ctx, { summaryId }) => {
     const s = await ctx.db.get(summaryId);
-    if (!s) return null;
-    const c = await ctx.db.get(s.conversationId);
+    if (!s || !s.conversationId) return null;
+    const conversationId = s.conversationId;
+    const c = await ctx.db.get(conversationId);
     if (!c) return null;
     const [topic, about] = await Promise.all([ctx.db.get(c.topicId), ctx.db.get(s.aboutUserId)]);
     const msgs = await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", s.conversationId))
+      .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
       .collect();
     return {
       humanText: s.humanText,
