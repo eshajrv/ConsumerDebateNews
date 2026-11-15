@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import type { FunctionReference } from "convex/server";
 import { useEffect, useSyncExternalStore } from "react";
 
-import { type DataArea, FAKE } from "../config";
+import { type DataArea, FAKE, ROOM_MODES } from "../config";
 import { pacificDate, useNow } from "../date";
 import * as feed from "../fake/feed";
 import * as leaderboard from "../fake/leaderboard";
@@ -13,7 +13,7 @@ import { getVersion, subscribe } from "../fake/store";
 import * as summaries from "../fake/summaries";
 import * as users from "../fake/users";
 import { api } from "./api";
-import type { Id, LeaderboardPeriod } from "./types";
+import type { Id, LeaderboardPeriod, RoomMode } from "./types";
 
 export * from "./types";
 
@@ -55,6 +55,8 @@ const useLinksAction = actionHook("links");
 
 const BRIDGE_ROOMS_TO_FAKE_SUMMARIES = !FAKE.rooms && FAKE.summaries;
 
+const withMode = <A extends Args>(args: A, mode?: RoomMode) => (ROOM_MODES && mode ? { ...args, mode } : args);
+
 const skipUnless = <A extends Args>(ready: unknown, args: A): A | "skip" => (ready ? args : "skip");
 
 export const useOnboard = () => useUsersAction(api.users.onboard, users.onboard);
@@ -65,11 +67,14 @@ export const useFeed = (userId: Id | null, date: string) =>
   useFeedData(api.feed.forUser, skipUnless(userId, { userId: userId!, date }), feed.forUser);
 export const useTopicStats = (topicId: Id) => useFeedData(api.dailyTopics.stats, { topicId }, feed.topicStats);
 
-export const useNextRoom = (topicId: Id) => {
+export const useNextRoom = (topicId: Id, mode?: RoomMode) => {
   const minute = Math.floor(useNow(15_000) / 60_000) * 60_000;
-  return useRoomsData(api.rooms.next, { topicId, now: minute }, rooms.nextRoom);
+  return useRoomsData(api.rooms.next, withMode({ topicId, now: minute }, mode), rooms.nextRoom);
 };
-export const useJoinRoom = () => useRoomsAction(api.rooms.join, rooms.joinRoom);
+export const useJoinRoom = () => {
+  const join = useRoomsAction(api.rooms.join, rooms.joinRoom);
+  return ({ mode, ...args }: { userId: Id; topicId: Id; allowSpectators?: boolean; mode?: RoomMode }) => join(withMode(args, mode));
+};
 export const useRoom = (roomId: Id) => {
   const room = useRoomsData(api.rooms.get, { roomId }, rooms.getRoom);
   useEffect(() => {

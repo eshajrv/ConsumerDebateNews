@@ -1,4 +1,4 @@
-import type { Band, Id, LiveRoom, NextRoom, Room, RoomMember, RoomMessage, RoomMessageKind } from "../data/types";
+import type { Band, Id, LiveRoom, NextRoom, Room, RoomMember, RoomMessage, RoomMessageKind, RoomMode } from "../data/types";
 import { getTopic } from "./feed";
 import { changed, newId } from "./store";
 import { getUser, stances } from "./users";
@@ -108,15 +108,20 @@ function tick() {
 }
 setInterval(tick, 1000);
 
-export function nextRoom({ topicId, now }: { topicId: Id; now: number }): NextRoom {
+const capacity = (mode?: RoomMode) => (mode === "oneOnOne" ? 2 : 6);
+const startingMembers = (mode?: RoomMode) => (mode === "oneOnOne" ? FAKE_MEMBERS.slice(0, 1) : FAKE_MEMBERS);
+const openRoom = (topicId: Id, slot: number, mode?: RoomMode) =>
+  fakeRooms.find((r) => r.topicId === topicId && r.slotStart === slot && r.status === "waiting" && r.members.length < capacity(mode));
+
+export function nextRoom({ topicId, now, mode }: { topicId: Id; now: number; mode?: RoomMode }): NextRoom {
   const slot = nextSlot(now);
-  const room = fakeRooms.find((r) => r.topicId === topicId && r.slotStart === slot && r.status === "waiting");
-  return { slot, joinedCount: room ? room.members.length : FAKE_MEMBERS.length };
+  const room = openRoom(topicId, slot, mode);
+  return { slot, joinedCount: room ? room.members.length : startingMembers(mode).length };
 }
 
-export async function joinRoom({ userId, topicId }: { userId: Id; topicId: Id; allowSpectators?: boolean }): Promise<Id> {
+export async function joinRoom({ userId, topicId, mode }: { userId: Id; topicId: Id; allowSpectators?: boolean; mode?: RoomMode }): Promise<Id> {
   const slot = nextSlot();
-  let room = fakeRooms.find((r) => r.topicId === topicId && r.slotStart === slot && r.status === "waiting" && r.members.length < 6);
+  let room = openRoom(topicId, slot, mode);
   if (!room) {
     room = {
       _id: newId("room"),
@@ -125,7 +130,7 @@ export async function joinRoom({ userId, topicId }: { userId: Id; topicId: Id; a
       slotStart: slot,
       status: "waiting",
       topic: getTopic(topicId) ?? null,
-      members: FAKE_MEMBERS.map((m) => ({ ...m })),
+      members: startingMembers(mode).map((m) => ({ ...m })),
     };
     fakeRooms.push(room);
   }
