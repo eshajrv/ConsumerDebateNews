@@ -79,6 +79,8 @@ export type Summary = {
   points?: number;
 };
 
+export type LeaderboardPeriod = "today" | "week";
+
 export type AppNotification = {
   _id: Id;
   _creationTime: number;

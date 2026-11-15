@@ -1,0 +1,137 @@
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Animated, Easing, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { Button } from "../../../src/components/Button";
+import { useMyRank, useRoom, useRoomSummaries, useUser } from "../../../src/data";
+import { useSavedUserId } from "../../../src/session";
+import { card, colors, radius, spacing, type } from "../../../src/theme";
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowValue}>{value}</Text>
+    </View>
+  );
+}
+
+function Stat({ label, value, delta }: { label: string; value: string; delta?: number }) {
+  return (
+    <View style={[card, styles.stat]}>
+      <Text style={type.label}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
+      {delta !== undefined && (
+        <Text style={[styles.delta, { color: delta >= 0 ? colors.sideB : colors.sideA }]}>
+          {delta >= 0 ? `+${delta}` : `${delta}`}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+export default function Results() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const userId = useSavedUserId();
+  const room = useRoom(id);
+  const summaries = useRoomSummaries(id);
+  const user = useUser(userId);
+  const rank = useMyRank(userId, "today");
+  const [count] = useState(() => new Animated.Value(0));
+  const [shown, setShown] = useState(0);
+
+  const authored = userId ? summaries?.find((s) => s.authorId === userId) : undefined;
+  const rating = authored?.gotMeRating;
+  const points = authored?.points;
+
+  useEffect(() => {
+    if (points === undefined) return;
+    const sub = count.addListener(({ value }) => setShown(Math.round(value)));
+    count.setValue(0);
+    Animated.timing(count, { toValue: points, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+    return () => count.removeListener(sub);
+  }, [points, count]);
+
+  if (!room || !summaries || !userId || !user) {
+    return (
+      <SafeAreaView style={[styles.safe, styles.center]}>
+        {room === null ? <Text style={type.body}>Room not found.</Text> : <ActivityIndicator color={colors.accent} />}
+      </SafeAreaView>
+    );
+  }
+
+  const subjectName = room.members.find((m) => m.userId === authored?.aboutUserId)?.name ?? "They";
+
+  if (rating === undefined || points === undefined) {
+    return (
+      <SafeAreaView style={[styles.safe, styles.center, styles.padded]}>
+        <ActivityIndicator color={colors.accent} size="large" />
+        <Text style={type.title}>Waiting for {subjectName} to rate your summary...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  const bonus = points - rating * 10;
+  const goodFaithChange = (rating - 3) * 2;
+
+  return (
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={type.label}>Results</Text>
+        <View style={styles.hero}>
+          <Text style={styles.points}>+{shown}</Text>
+          <Text style={styles.muted}>points for understanding {subjectName}</Text>
+        </View>
+
+        <View style={[card, styles.breakdown]}>
+          <Row label={`${rating} star${rating === 1 ? "" : "s"} × 10`} value={`+${rating * 10}`} />
+          <Row
+            label={bonus > 0 ? `${subjectName} couldn't tell yours from the AI's` : `${subjectName} spotted yours`}
+            value={`+${Math.max(0, bonus)}`}
+          />
+          <View style={styles.divider} />
+          <Row label="Total" value={`+${points}`} />
+        </View>
+
+        <View style={styles.stats}>
+          <Stat label="Streak" value={`${user.streak} day${user.streak === 1 ? "" : "s"}`} />
+          <Stat label="Good faith" value={String(user.goodFaithScore)} delta={goodFaithChange} />
+          <Stat label="Rank today" value={rank ? `#${rank}` : "-"} />
+        </View>
+
+        {user.insight && (
+          <View style={styles.insight}>
+            <Text style={[type.label, { color: colors.accent }]}>What we noticed</Text>
+            <Text style={styles.insightText}>{user.insight}</Text>
+          </View>
+        )}
+      </ScrollView>
+      <View style={styles.footer}>
+        <Button title="Back to today's topics" onPress={() => router.replace("/home")} />
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.background },
+  center: { alignItems: "center", justifyContent: "center", gap: spacing.md },
+  padded: { padding: spacing.lg },
+  content: { padding: spacing.lg, gap: spacing.lg },
+  hero: { alignItems: "center", gap: spacing.xs, paddingVertical: spacing.md },
+  points: { fontSize: 72, fontWeight: "800", color: colors.accent, fontVariant: ["tabular-nums"] },
+  muted: { fontSize: 16, color: colors.muted, textAlign: "center" },
+  breakdown: { gap: spacing.sm },
+  row: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md },
+  rowLabel: { ...type.body, flex: 1 },
+  rowValue: { ...type.body, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  divider: { height: 1, backgroundColor: colors.border },
+  stats: { flexDirection: "row", gap: spacing.sm },
+  stat: { flex: 1, padding: spacing.md, gap: spacing.xs, alignItems: "center" },
+  statValue: { fontSize: 22, fontWeight: "800", color: colors.text },
+  delta: { fontSize: 14, fontWeight: "700" },
+  insight: { backgroundColor: colors.accentSoft, borderRadius: radius.card, padding: spacing.lg, gap: spacing.xs },
+  insightText: { fontSize: 18, lineHeight: 24, fontWeight: "600", color: colors.text },
+  footer: { padding: spacing.lg, paddingTop: spacing.sm },
+});

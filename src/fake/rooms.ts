@@ -75,6 +75,13 @@ const post = (roomId: Id, userId: Id | null, text: string) => {
   changed();
 };
 
+function assignCircle(room: Room) {
+  const circle = [...room.members].sort(() => Math.random() - 0.5);
+  circle.forEach((m, i) => {
+    m.summarizesUserId = circle[(i + 1) % circle.length].userId;
+  });
+}
+
 function tick() {
   const now = Date.now();
   for (const room of fakeRooms) {
@@ -93,6 +100,7 @@ function tick() {
       }
     } else if (room.status === "live" && room.endsAt && now >= room.endsAt) {
       room.status = "summarizing";
+      assignCircle(room);
       room.agreementLine = "You all agreed the tradeoffs are real, even where you landed differently.";
       post(room._id, null, `Time's up. ${room.agreementLine}`);
     }
@@ -132,6 +140,10 @@ export function roomMessages({ roomId }: { roomId: Id }): RoomMessage[] {
 export async function sendMessage({ roomId, userId, text }: { roomId: Id; userId: Id; text: string }): Promise<null> {
   const room = getRoom({ roomId });
   if (!room || room.status !== "live") return null;
+  if (!room.members.some((m) => m.userId === userId)) {
+    const position = stances.find((s) => s.userId === userId && s.topicId === room.topicId)?.position ?? 50;
+    room.members.push({ userId, name: getUser({ userId })?.name ?? "You", position, band: bandOf(position) });
+  }
   post(roomId, userId, text.trim().slice(0, 500));
   userMessageCount++;
 
