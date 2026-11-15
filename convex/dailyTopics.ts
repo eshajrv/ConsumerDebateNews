@@ -2,10 +2,11 @@
 // Automatic daily topics. Every morning:
 //   1. Pull headlines from news RSS feeds across the spectrum
 //   2. AI groups them into stories and keeps the ones people genuinely disagree on
-//   3. AI writes each topic card (question, two sides, neutral brief, sources)
+//   3. AI writes each topic card (question, two sides, neutral brief, sources) and marks one
+//      as the shared topic of the day
 //   4. Topics publish automatically. If the run fails, the app keeps showing the last good set.
 // Run it by hand any time from the Convex dashboard: dailyTopics:generate (args: { "force": true }).
-import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, mutation, query, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { askClaude, extractJson } from "./lib/claude";
@@ -24,15 +25,25 @@ const FEEDS: { name: string; url: string; lean: "left" | "center" | "right" }[] 
   { name: "Fox News", url: "https://moxie.foxnews.com/google-publisher/latest.xml", lean: "right" },
   { name: "New York Post", url: "https://nypost.com/feed/", lean: "right" },
   { name: "Washington Examiner", url: "https://www.washingtonexaminer.com/feed", lean: "right" },
+  // Sports
+  { name: "CBS Sports", url: "https://www.cbssports.com/rss/headlines/", lean: "center" },
+  { name: "Yahoo Sports", url: "https://sports.yahoo.com/rss/", lean: "center" },
+  { name: "Fox Sports News", url: "https://moxie.foxnews.com/google-publisher/sports.xml", lean: "right" },
+  // Campus
+  { name: "NPR Education", url: "https://feeds.npr.org/1013/rss.xml", lean: "left" },
+  { name: "Inside Higher Ed", url: "https://www.insidehighered.com/rss.xml", lean: "center" },
+  { name: "The Hechinger Report", url: "https://hechingerreport.org/feed/", lean: "center" },
+  { name: "The College Fix", url: "https://www.thecollegefix.com/feed/", lean: "right" },
 ];
 
-const TOPICS_PER_DAY = 4; // 1 politics, 2 tech, 1 culture
+const CATEGORIES = ["politics", "tech", "culture", "sports", "campus"];
+const TOPICS_PER_DAY = 10; // 2 per category when the news allows
 const HEADLINES_PER_FEED = 15;
 
 type Headline = { outlet: string; lean: string; title: string; description: string; link: string };
 
 // Today's date in Pacific time, so "today" matches the users' phones.
-function pacificDate(d = new Date()): string {
+export function pacificDate(d = new Date()): string {
   return d.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
 }
 
@@ -67,8 +78,8 @@ function parseRss(xml: string, outlet: string, lean: string): Headline[] {
 }
 
 const PROMPT = (headlines: Headline[], recentQuestions: string[]) => `
-You choose today's discussion topics for Practify, an app that matches two people who see
-the news differently for a short, respectful 5-minute conversation.
+You choose today's discussion topics for Practify, an app that puts small groups of people who
+see the news differently into a short, respectful 10-minute conversation.
 
 Today's headlines, labeled with outlet and approximate political lean:
 ${JSON.stringify(headlines)}
@@ -83,19 +94,22 @@ Steps:
    - It can be a clear yes/no or A-vs-B question.
    - No side would have to defend something hateful or attack a group of people.
    - Not a tragedy, disaster, crime, or death.
-   - A regular person can discuss it for 5 minutes without being an expert.
+   - A regular person can discuss it for 10 minutes without being an expert.
    - Politics stories: covered by at least one left AND one right outlet.
-     Tech and culture stories: covered by at least two outlets.
-3. Pick exactly ${TOPICS_PER_DAY}: 1 politics, 2 tech, 1 culture. If there aren't enough of a
-   category, fill with the best remaining stories of another category.
+     Tech, culture, sports and campus stories: covered by at least two outlets.
+3. Pick exactly ${TOPICS_PER_DAY}: 2 politics, 2 tech, 2 culture, 2 sports, 2 campus. If there
+   aren't enough of a category, fill with the best remaining stories of another category.
+4. Mark exactly ONE topic as the shared topic of the day: the one most people would find
+   interesting and have an opinion on, whatever their interests.
 
 For each, write in your own words (never copy article text, never invent facts or numbers):
-- category: "politics" | "tech" | "culture"
+- category: "politics" | "tech" | "culture" | "sports" | "campus"
 - question: the yes/no or A-vs-B question, under 90 characters
 - sideA, sideB: short labels for each side, 2-5 words each
 - brief: 3-4 neutral sentences: what happened and why people disagree
 - sideAView, sideBView: one sentence each, the strongest fair version of that side
 - sources: 2-4 links from the headlines above, from different outlets when possible
+- isShared: true for the one shared topic, false for the rest
 
 Return ONLY a JSON array of ${TOPICS_PER_DAY} objects with exactly those fields.`;
 
@@ -108,11 +122,12 @@ type TopicDraft = {
   sideAView: string;
   sideBView: string;
   sources: string[];
+  isShared?: boolean;
 };
 
 function validTopic(t: TopicDraft): boolean {
   return (
-    ["politics", "tech", "culture"].includes(t.category) &&
+    CATEGORIES.includes(t.category) &&
     typeof t.question === "string" && t.question.length > 10 && t.question.length < 140 &&
     !!t.sideA && !!t.sideB && !!t.brief && !!t.sideAView && !!t.sideBView &&
     Array.isArray(t.sources)
@@ -156,7 +171,7 @@ export const generate = internalAction({
     let topics: TopicDraft[] = [];
     for (let attempt = 1; attempt <= 2 && topics.length < TOPICS_PER_DAY; attempt++) {
       try {
-        const raw = await askClaude(PROMPT(headlines, recentQuestions), 4000);
+        const raw = await askClaude(PROMPT(headlines, recentQuestions), 8000);
         topics = extractJson<TopicDraft[]>(raw).filter(validTopic).slice(0, TOPICS_PER_DAY);
       } catch (e) {
         console.log(`Attempt ${attempt} failed: ${(e as Error).message}`);
@@ -167,8 +182,22 @@ export const generate = internalAction({
       return;
     }
 
+    // Exactly one shared topic: the AI's pick, or the first topic if it didn't pick one
+    const sharedIndex = Math.max(0, topics.findIndex((t) => t.isShared === true));
+    const cards = topics.map((t, i) => ({
+      category: t.category,
+      question: t.question,
+      sideA: t.sideA,
+      sideB: t.sideB,
+      brief: t.brief,
+      sideAView: t.sideAView,
+      sideBView: t.sideBView,
+      sources: t.sources.filter((s) => typeof s === "string"),
+      isShared: i === sharedIndex,
+    }));
+
     // 4. Publish (replaces today's set if forced)
-    await ctx.runMutation(internal.dailyTopics.publishDay, { date, topics });
+    await ctx.runMutation(internal.dailyTopics.publishDay, { date, topics: cards });
     console.log(`Published ${topics.length} topics for ${date}`);
   },
 });
@@ -199,6 +228,7 @@ const topicFields = {
   sideAView: v.string(),
   sideBView: v.string(),
   sources: v.array(v.string()),
+  isShared: v.boolean(),
 };
 
 export const publishDay = internalMutation({
@@ -222,21 +252,24 @@ export const hide = mutation({
   },
 });
 
-// Home screen: today's topics. If today's run hasn't happened or failed,
+// Today's live topics. If today's run hasn't happened or failed,
 // fall back to the most recent day that has topics, so the app is never empty.
+export async function liveTopics(ctx: QueryCtx, date: string) {
+  const todays = await ctx.db
+    .query("topics")
+    .withIndex("by_date_status", (q) => q.eq("date", date).eq("status", "live"))
+    .collect();
+  if (todays.length > 0) return todays;
+  const recent = await ctx.db.query("topics").order("desc").take(50);
+  const latestLive = recent.find((t) => t.status === "live");
+  if (!latestLive) return [];
+  return recent.filter((t) => t.status === "live" && t.date === latestLive.date);
+}
+
+// Home screen: today's topics.
 export const today = query({
   args: { date: v.string() },
-  handler: async (ctx, { date }) => {
-    const todays = await ctx.db
-      .query("topics")
-      .withIndex("by_date_status", (q) => q.eq("date", date).eq("status", "live"))
-      .collect();
-    if (todays.length > 0) return todays;
-    const recent = await ctx.db.query("topics").order("desc").take(50);
-    const latestLive = recent.find((t) => t.status === "live");
-    if (!latestLive) return [];
-    return recent.filter((t) => t.status === "live" && t.date === latestLive.date);
-  },
+  handler: async (ctx, { date }) => liveTopics(ctx, date),
 });
 
 // Live numbers on each card: how people split, and how many are talking right now.
