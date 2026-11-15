@@ -81,7 +81,7 @@ export default function RoomLobby() {
         <View style={[card, styles.membersCard]}>
           <Text style={type.title}>{room.members.length} in this room</Text>
           <MiniScale members={room.members} youId={userId} dropIn={live} />
-          <Text style={styles.muted}>{live ? "Everyone's here." : "Rooms start with 3+ people."}</Text>
+          <Text style={styles.muted}>{live ? "Everyone's here." : "Rooms start with 2+ people."}</Text>
         </View>
       </Animated.View>
     </SafeAreaView>
