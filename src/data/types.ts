@@ -79,6 +79,24 @@ export type RoomMessage = {
   flagged?: boolean;
 };
 
+export type MindsMovedMember = {
+  userId: Id<"users">;
+  name: string;
+  before: number;
+  after: number | null; // their slider answer
+  shift: number | null;
+  aiAfter: number | null; // AI estimate, used when they skip the slider
+  reason: string | null;
+};
+
+export type MindsMoved = {
+  members: MindsMovedMember[];
+  movedCount: number;
+  total: number;
+  averageGapBefore: number;
+  averageGapAfter: number;
+};
+
 export type LiveRoom = {
   _id: Id<"rooms">;
   topicId: Id<"topics">;

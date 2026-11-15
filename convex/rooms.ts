@@ -496,6 +496,114 @@ export const end = internalMutation({
     }
     await ctx.scheduler.runAfter(0, internal.rooms.writeClosing, { roomId });
     await ctx.scheduler.runAfter(0, internal.ai.rateRoomCivility, { roomId });
+    await ctx.scheduler.runAfter(0, internal.rooms.estimateEndPositions, { roomId });
+  },
+});
+
+// ---------- Did minds move: AI estimate of where each member ended up ----------
+
+export const endContext = internalQuery({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    const room = await ctx.db.get(roomId);
+    if (!room) return null;
+    const topic = await ctx.db.get(room.topicId);
+    if (!topic) return null;
+    const msgs = await ctx.db
+      .query("roomMessages")
+      .withIndex("by_room", (q) => q.eq("roomId", roomId))
+      .collect();
+    const members = await Promise.all(
+      (await activeMembers(ctx, roomId)).map(async (m) => ({
+        userId: m.userId,
+        name: (await ctx.db.get(m.userId))?.name ?? "Someone",
+        position: m.position,
+        positionAfter: m.positionAfter ?? null,
+        messages: msgs.filter((x) => x.kind === "user" && x.userId === m.userId).map((x) => x.text),
+      })),
+    );
+    return {
+      date: topic.date,
+      category: topic.category,
+      question: topic.question,
+      sideA: topic.sideA,
+      sideB: topic.sideB,
+      members,
+    };
+  },
+});
+
+export const setEndEstimates = internalMutation({
+  args: {
+    roomId: v.id("rooms"),
+    estimates: v.array(v.object({ userId: v.id("users"), position: v.number(), reason: v.string() })),
+  },
+  handler: async (ctx, { roomId, estimates }) => {
+    for (const e of estimates) {
+      const member = await ctx.db
+        .query("roomMembers")
+        .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", e.userId))
+        .unique();
+      if (member) await ctx.db.patch(member._id, { endPositionAI: e.position, endReason: e.reason });
+    }
+  },
+});
+
+export const estimateEndPositions = internalAction({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    const d = await ctx.runQuery(internal.rooms.endContext, { roomId });
+    if (!d || d.members.length === 0) return;
+    const prompt = `A group just discussed: "${d.question}"
+0 = fully "${d.sideA}", 100 = fully "${d.sideB}".
+
+For each numbered person you get where they started and everything they wrote.
+Estimate where they stand NOW, 0-100, judging only from what they wrote. If they wrote
+little or nothing, or never signaled a change, keep their start position.
+Give a one-line, neutral reason (no judgement of who is right).
+
+${d.members
+  .map((m, i) => `Person ${i + 1}: started at ${m.position}\n${m.messages.length ? m.messages.map((t) => `- ${t}`).join("\n") : "(wrote nothing)"}`)
+  .join("\n\n")}
+
+Return ONLY JSON like {"1": {"position": 40, "reason": "..."}, "2": {...}} for persons ${d.members.map((_, i) => i + 1).join(", ")}.`;
+
+    let estimates: { userId: Id<"users">; position: number; reason: string }[];
+    try {
+      const r = extractJson<Record<string, { position: number; reason: string }>>(await askClaude(prompt, 600));
+      estimates = d.members.flatMap((m, i) => {
+        const e = r[String(i + 1)];
+        const n = Number(e?.position);
+        if (!Number.isFinite(n)) return [];
+        return [{ userId: m.userId, position: Math.max(0, Math.min(100, Math.round(n))), reason: String(e.reason ?? "").slice(0, 200) }];
+      });
+    } catch (e) {
+      console.log(`End-position estimate failed: ${(e as Error).message}`);
+      return;
+    }
+    await ctx.runMutation(internal.rooms.setEndEstimates, { roomId, estimates });
+
+    // Save start and end to Supermemory. A slider answer wins: rooms.setPositionAfter saves
+    // that one (same memory id), so only members who haven't answered use the AI estimate.
+    for (const m of d.members) {
+      const est = estimates.find((e) => e.userId === m.userId);
+      const after = m.positionAfter ?? est?.position;
+      if (after === undefined) continue;
+      await ctx.scheduler.runAfter(0, internal.memory.remember, {
+        shift: {
+          roomId,
+          userId: m.userId,
+          name: m.name,
+          date: d.date,
+          category: d.category,
+          question: d.question,
+          sideA: d.sideA,
+          sideB: d.sideB,
+          before: m.position,
+          after,
+        },
+      });
+    }
   },
 });
 
@@ -617,6 +725,8 @@ export const mindsMoved = query({
         before: m.position,
         after: m.positionAfter ?? null,
         shift: m.positionAfter === undefined ? null : m.positionAfter - m.position,
+        aiAfter: m.endPositionAI ?? null, // AI estimate, used when they skip the slider
+        reason: m.endReason ?? null,
       })),
     );
     const gap = (ps: number[]) => (ps.length ? Math.max(...ps) - Math.min(...ps) : 0);

@@ -148,6 +148,8 @@ export default defineSchema({
     left: v.optional(v.boolean()),
     movedToRoomId: v.optional(v.id("rooms")), // set when this member's room rolled
     positionAfter: v.optional(v.number()), // "Minds moved": where they stand after the chat, 0-100
+    endPositionAI: v.optional(v.number()), // AI estimate of where they ended up, from their messages
+    endReason: v.optional(v.string()), // one line on why the AI placed them there
   })
     .index("by_room", ["roomId"])
     .index("by_user", ["userId"])
