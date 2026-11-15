@@ -6,6 +6,8 @@ export const todayString = () => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
+export const pacificDate = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+
 export const formatTime = (ms: number) => {
   const d = new Date(ms);
   return `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")}`;

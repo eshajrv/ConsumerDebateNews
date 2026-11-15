@@ -51,8 +51,10 @@ export default function RoomLobby() {
           </Animated.View>
         ) : (
           <View style={styles.countdownWrap}>
-            <Text style={type.label}>{room.status === "rolled" ? `Moved to ${formatTime(room.slot)}` : `Room starts at ${formatTime(room.slot)}`}</Text>
-            <Text style={styles.countdown}>{formatCountdown(room.slot - now)}</Text>
+            <Text style={type.label}>
+              {room.status !== "rolled" ? `Room starts at ${formatTime(room.slotStart)}` : room.slotStart > now ? `Moved to ${formatTime(room.slotStart)}` : "Moved to the next room"}
+            </Text>
+            {room.slotStart > now && <Text style={styles.countdown}>{formatCountdown(room.slotStart - now)}</Text>}
             {room.status === "rolled" && <Text style={styles.muted}>Not enough different views yet, so we moved you to the next room.</Text>}
           </View>
         )}

@@ -1,4 +1,4 @@
-import type { Id, Summary } from "../data/types";
+import type { Id, Room, Summary } from "../data/types";
 import { getTopic } from "./feed";
 import { getRoom } from "./rooms";
 import { changed, newId } from "./store";
@@ -33,6 +33,14 @@ export const fakeSummaries: FakeSummary[] = [
   },
 ];
 
+const liveRooms = new Map<Id, Room>();
+
+export function rememberRoom(room: Room) {
+  liveRooms.set(room._id, room);
+}
+
+const roomFor = (roomId: Id) => liveRooms.get(roomId) ?? getRoom({ roomId });
+
 const toSummary = (s: FakeSummary): Summary => {
   const guessed = s.subjectGuess !== undefined;
   const ready = s.aiText !== undefined;
@@ -55,8 +63,8 @@ const firstSentence = (text: string) => {
 };
 
 export function fakeLinesAbout(roomId: Id, aboutUserId: Id): { humanText: string; aiText: string } {
-  const room = getRoom({ roomId });
-  const topic = room ? getTopic(room.topicId) : undefined;
+  const room = roomFor(roomId);
+  const topic = room ? (room.topic ?? getTopic(room.topicId)) : undefined;
   const position = room?.members.find((m) => m.userId === aboutUserId)?.position ?? 50;
   if (!topic) {
     return {
@@ -86,10 +94,10 @@ function applyRating(s: FakeSummary, gotMeRating: number) {
 
   const author = fakeUsers.find((u) => u._id === s.authorId);
   if (!author) return;
-  author.totalPoints += s.points;
+  author.totalPoints = (author.totalPoints ?? 0) + s.points;
   author.goodFaithScore = Math.max(0, Math.min(100, author.goodFaithScore + (rating - 3) * 2));
-  const room = getRoom({ roomId: s.roomId });
-  const topic = room ? getTopic(room.topicId) : undefined;
+  const room = roomFor(s.roomId);
+  const topic = room ? (room.topic ?? getTopic(room.topicId)) : undefined;
   if (topic) author.insight = `You're most open on ${topic.category} topics.`;
 }
 
@@ -99,7 +107,7 @@ export function summariesForRoom({ roomId }: { roomId: Id }): Summary[] {
 
 export async function submitSummary({ roomId, authorId, text }: { roomId: Id; authorId: Id; text: string }): Promise<null> {
   if (fakeSummaries.some((s) => s.roomId === roomId && s.authorId === authorId)) return null;
-  const room = getRoom({ roomId });
+  const room = roomFor(roomId);
   const members = room?.members ?? [];
   const aboutUserId =
     members.find((m) => m.userId === authorId)?.summarizesUserId ?? members.find((m) => m.userId !== authorId)?.userId ?? "user_maya";

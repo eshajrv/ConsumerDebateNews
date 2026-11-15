@@ -1,4 +1,4 @@
-import type { Band, Id, LiveRoom, NextRoom, Room, RoomMember, RoomMessage } from "../data/types";
+import type { Band, Id, LiveRoom, NextRoom, Room, RoomMember, RoomMessage, RoomMessageKind } from "../data/types";
 import { getTopic } from "./feed";
 import { changed, newId } from "./store";
 import { getUser, stances } from "./users";
@@ -8,9 +8,9 @@ const SLOT_MS = SLOT_MINUTES * 60_000;
 const CHAT_MS = 10 * 60_000;
 const MIN_LOBBY_MS = 30_000;
 
-const nextSlot = () => {
-  const slot = Math.ceil(Date.now() / SLOT_MS) * SLOT_MS;
-  return slot - Date.now() < MIN_LOBBY_MS ? slot + SLOT_MS : slot;
+const nextSlot = (now = Date.now()) => {
+  const slot = Math.ceil(now / SLOT_MS) * SLOT_MS;
+  return slot - now < MIN_LOBBY_MS ? slot + SLOT_MS : slot;
 };
 const bandOf = (position: number): Band => (position <= 35 ? "A" : position >= 65 ? "B" : "M");
 
@@ -54,24 +54,25 @@ const demoOpener =
 export const fakeRooms: Room[] = [
   {
     _id: "room_demo",
+    _creationTime: Date.now() - 5 * 60_000,
     topicId: "topic_ai_code",
-    slot: Date.now() - 2 * 60_000,
+    slotStart: Date.now() - 2 * 60_000,
     status: "live",
     endsAt: Date.now() + 8 * 60_000,
-    opener: demoOpener,
+    topic: getTopic("topic_ai_code") ?? null,
     members: FAKE_MEMBERS.map((m) => ({ ...m })),
   },
 ];
 
 export const fakeMessages: RoomMessage[] = [
-  { _id: "msg_1", _creationTime: Date.now() - 120_000, roomId: "room_demo", userId: null, isJudge: true, flagged: false, text: demoOpener },
-  { _id: "msg_2", _creationTime: Date.now() - 90_000, roomId: "room_demo", userId: "user_jordan", isJudge: false, flagged: false, text: "Honestly, tests. If the tests are good I care less who wrote it." },
-  { _id: "msg_3", _creationTime: Date.now() - 60_000, roomId: "room_demo", userId: "user_maya", isJudge: false, flagged: false, text: "But who writes the tests? If that's AI too, it's checking its own homework." },
-  { _id: "msg_4", _creationTime: Date.now() - 30_000, roomId: "room_demo", userId: "user_priya", isJudge: false, flagged: false, text: "I think it depends on the stage. A prototype is different from a bank's backend." },
+  { _id: "msg_1", _creationTime: Date.now() - 120_000, roomId: "room_demo", kind: "opener", text: demoOpener },
+  { _id: "msg_2", _creationTime: Date.now() - 90_000, roomId: "room_demo", userId: "user_jordan", kind: "user", text: "Honestly, tests. If the tests are good I care less who wrote it." },
+  { _id: "msg_3", _creationTime: Date.now() - 60_000, roomId: "room_demo", userId: "user_maya", kind: "user", text: "But who writes the tests? If that's AI too, it's checking its own homework." },
+  { _id: "msg_4", _creationTime: Date.now() - 30_000, roomId: "room_demo", userId: "user_priya", kind: "user", text: "I think it depends on the stage. A prototype is different from a bank's backend." },
 ];
 
-const post = (roomId: Id, userId: Id | null, text: string) => {
-  fakeMessages.push({ _id: newId("msg"), _creationTime: Date.now(), roomId, userId, isJudge: userId === null, flagged: false, text });
+const post = (roomId: Id, userId: Id | null, text: string, kind: RoomMessageKind = userId ? "user" : "nudge") => {
+  fakeMessages.push({ _id: newId("msg"), _creationTime: Date.now(), roomId, userId: userId ?? undefined, kind, text });
   changed();
 };
 
@@ -85,40 +86,47 @@ function assignCircle(room: Room) {
 function tick() {
   const now = Date.now();
   for (const room of fakeRooms) {
-    if ((room.status === "waiting" || room.status === "rolled") && now >= room.slot) {
+    if ((room.status === "waiting" || room.status === "rolled") && now >= room.slotStart) {
       const positions = room.members.map((m) => m.position);
       const canStart = room.members.length >= 3 && Math.max(...positions) - Math.min(...positions) >= 40;
       if (canStart) {
         room.status = "live";
         room.endsAt = now + CHAT_MS;
-        room.opener = openerFor(room.members);
-        post(room._id, null, room.opener);
+        post(room._id, null, openerFor(room.members), "opener");
       } else {
         room.status = "rolled";
-        room.slot += SLOT_MS;
+        room.slotStart += SLOT_MS;
         changed();
       }
     } else if (room.status === "live" && room.endsAt && now >= room.endsAt) {
       room.status = "summarizing";
       assignCircle(room);
       room.agreementLine = "You all agreed the tradeoffs are real, even where you landed differently.";
-      post(room._id, null, `Time's up. ${room.agreementLine}`);
+      post(room._id, null, `Time's up. ${room.agreementLine}`, "closing");
     }
   }
 }
 setInterval(tick, 1000);
 
-export function nextRoom({ topicId }: { topicId: Id }): NextRoom {
-  const slot = nextSlot();
-  const room = fakeRooms.find((r) => r.topicId === topicId && r.slot === slot && r.status === "waiting");
+export function nextRoom({ topicId, now }: { topicId: Id; now: number }): NextRoom {
+  const slot = nextSlot(now);
+  const room = fakeRooms.find((r) => r.topicId === topicId && r.slotStart === slot && r.status === "waiting");
   return { slot, joinedCount: room ? room.members.length : FAKE_MEMBERS.length };
 }
 
-export async function joinRoom({ userId, topicId }: { userId: Id; topicId: Id }): Promise<Id> {
+export async function joinRoom({ userId, topicId }: { userId: Id; topicId: Id; allowSpectators?: boolean }): Promise<Id> {
   const slot = nextSlot();
-  let room = fakeRooms.find((r) => r.topicId === topicId && r.slot === slot && r.status === "waiting" && r.members.length < 6);
+  let room = fakeRooms.find((r) => r.topicId === topicId && r.slotStart === slot && r.status === "waiting" && r.members.length < 6);
   if (!room) {
-    room = { _id: newId("room"), topicId, slot, status: "waiting", members: FAKE_MEMBERS.map((m) => ({ ...m })) };
+    room = {
+      _id: newId("room"),
+      _creationTime: Date.now(),
+      topicId,
+      slotStart: slot,
+      status: "waiting",
+      topic: getTopic(topicId) ?? null,
+      members: FAKE_MEMBERS.map((m) => ({ ...m })),
+    };
     fakeRooms.push(room);
   }
   if (!room.members.some((m) => m.userId === userId)) {
@@ -173,5 +181,11 @@ export async function sendMessage({ roomId, userId, text }: { roomId: Id; userId
 export function liveRooms({ topicId }: { topicId?: Id }): LiveRoom[] {
   return fakeRooms
     .filter((r) => r.status === "live" && (!topicId || r.topicId === topicId))
-    .map((r) => ({ _id: r._id, topicId: r.topicId, question: getTopic(r.topicId)?.question ?? "", memberCount: r.members.length, endsAt: r.endsAt ?? Date.now() }));
+    .map((r) => ({
+      _id: r._id,
+      topicId: r.topicId,
+      question: getTopic(r.topicId)?.question ?? "",
+      endsAt: r.endsAt,
+      members: r.members.map(({ name, position, band }) => ({ name, position, band })),
+    }));
 }
