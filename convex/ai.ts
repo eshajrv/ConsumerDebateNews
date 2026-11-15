@@ -49,7 +49,20 @@ Match this style so it's hard to tell apart from a human's summary:
 "${data.humanText}"
 Use about ${words} words, the same casual tone, no quotes, no hedging phrases like "it seems".
 Return only the sentence.`;
-    const aiText = (await askClaude(prompt, 150)).trim().replace(/^"|"$/g, "");
+    let aiText: string;
+    try {
+      aiText = (await askClaude(prompt, 150)).trim().replace(/^"|"$/g, "");
+      if (!aiText) throw new Error("empty AI summary");
+    } catch (e) {
+      console.log("AI summary failed; using fallback", e);
+      const lower = (side: string) => side.charAt(0).toLowerCase() + side.slice(1).replace(/[.?!]+$/, "");
+      aiText =
+        data.aboutPosition < 45
+          ? `You lean toward ${lower(data.sideA)}.`
+          : data.aboutPosition > 55
+            ? `You lean toward ${lower(data.sideB)}.`
+            : `You see real points on both sides, between ${lower(data.sideA)} and ${lower(data.sideB)}.`;
+    }
     await ctx.runMutation(internal.summaries.setAiText, { summaryId, aiText });
   },
 });
@@ -90,6 +103,32 @@ Return ONLY JSON: {"A": number, "B": number}`;
       });
     } catch {
       console.log("Civility rating failed; skipping");
+    }
+  },
+});
+
+export const rateRoomCivility = internalAction({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    const data = await ctx.runQuery(internal.rooms.civilityTranscript, { roomId });
+    if (!data || data.lines.length === 0) return;
+    const prompt = `Rate how constructive each numbered person was in this group disagreement, 1-5.
+5 = curious, respectful, engages with others' points. 1 = insults, mockery, bad faith.
+Disagreeing strongly is fine; only rate HOW they disagreed.
+
+${data.lines.join("\n")}
+
+Return ONLY JSON mapping each person's number to their rating, for example {"1": 4, "2": 3}.
+Only include these people: ${data.speakers.map((_, i) => i + 1).join(", ")}.`;
+    try {
+      const r = extractJson<Record<string, number>>(await askClaude(prompt, 100));
+      const ratings = data.speakers.flatMap((userId, i) => {
+        const n = Number(r[String(i + 1)]);
+        return Number.isFinite(n) ? [{ userId, civility: Math.max(1, Math.min(5, Math.round(n))) }] : [];
+      });
+      await ctx.runMutation(internal.rooms.setCivility, { roomId, ratings });
+    } catch {
+      console.log("Room civility rating failed; skipping");
     }
   },
 });
