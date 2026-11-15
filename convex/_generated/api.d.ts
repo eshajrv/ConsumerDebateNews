@@ -20,6 +20,7 @@ import type * as lib_claude from "../lib/claude.js";
 import type * as links from "../links.js";
 import type * as matching from "../matching.js";
 import type * as memory from "../memory.js";
+import type * as notifications from "../notifications.js";
 import type * as notify from "../notify.js";
 import type * as rooms from "../rooms.js";
 import type * as summaries from "../summaries.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   links: typeof links;
   matching: typeof matching;
   memory: typeof memory;
+  notifications: typeof notifications;
   notify: typeof notify;
   rooms: typeof rooms;
   summaries: typeof summaries;

@@ -1,5 +1,5 @@
 // convex/crons.ts
-// Runs the daily topics pipeline every morning.
+// Runs the daily topics pipeline every morning, then tells everyone their feed is ready.
 import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
 
@@ -20,5 +20,9 @@ crons.daily(
   internal.dailyTopics.generate,
   {}
 );
+
+// "Your feed is ready" at 8:00 AM Pacific. Runs at 15:00 and 16:00 UTC; feedReady only sends
+// on the run that is 8 AM in Pacific time, so it's right with and without daylight saving.
+crons.cron("feed ready notification", "0 15,16 * * *", internal.notifications.feedReady, {});
 
 export default crons;
