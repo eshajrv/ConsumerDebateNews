@@ -219,7 +219,7 @@ async function finishRoomIfRated(ctx: MutationCtx, roomId: Id<"rooms">) {
   if (!members.every(rated)) return;
   await ctx.db.patch(roomId, { status: "done" });
   for (const m of members) {
-    await notify(ctx, m.userId, "Your results are in", `practify://results/${roomId}`);
+    await notify(ctx, m.userId, "Your results are in", `practify://room/${roomId}/summary`);
   }
 }
 
