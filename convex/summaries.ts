@@ -11,6 +11,7 @@ import { internal } from "./_generated/api";
 import { ConvexError, v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 import { notify } from "./notify";
+import { addDailyPoints } from "./leaderboard";
 
 async function submitForRoom(ctx: MutationCtx, roomId: Id<"rooms">, authorId: Id<"users">, text: string) {
   const room = await ctx.db.get(roomId);
@@ -172,6 +173,7 @@ export const rate = mutation({
     const points = rating * 10 + (couldntTell ? 20 : 0);
     await ctx.db.patch(summaryId, { gotMeRating: rating, points });
     await ctx.scheduler.runAfter(0, internal.memory.remember, { summaryId });
+    await addDailyPoints(ctx, s.authorId, points);
 
     const author = await ctx.db.get(s.authorId);
     if (author) {
