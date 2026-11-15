@@ -9,6 +9,9 @@ import { useMindsMoved, useMyRank, useRoom, useRoomSummaries, useUser } from "..
 import { useSavedUserId } from "../../../src/session";
 import { card, colors, radius, spacing, type } from "../../../src/theme";
 
+// Same threshold as MOVED in convex/rooms.ts
+const MOVED = 10;
+
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.row}>
@@ -93,13 +96,15 @@ export default function Results() {
   }
 
   const myMove = minds?.members.find((m) => m.userId === userId);
-  const sideTowards = myMove?.after != null && myMove.after > myMove.before ? room?.topic?.sideB : room?.topic?.sideA;
-  const moveLine =
-    !myMove || myMove.after === null
-      ? null
-      : myMove.moved
-        ? `You moved ${Math.abs(myMove.after - myMove.before)} points toward ${myMove.towardName ?? sideTowards ?? "the other side"}`
-        : "You held your view";
+  let moveLine: string | null = null;
+  if (myMove && myMove.after !== null && myMove.shift !== null) {
+    const { before, after, shift } = myMove;
+    const toward = minds!.members
+      .filter((m) => m.userId !== userId && Math.sign(m.before - before) === Math.sign(shift))
+      .sort((a, b) => Math.abs(a.before - after) - Math.abs(b.before - after))[0];
+    const towardName = toward?.name ?? (shift > 0 ? room?.topic?.sideB : room?.topic?.sideA) ?? "the other side";
+    moveLine = Math.abs(shift) >= MOVED ? `You moved ${Math.abs(shift)} points toward ${towardName}` : "You held your view";
+  }
 
   const bonus = points - rating * 10;
   const goodFaithChange = (rating - 3) * 2;
@@ -130,7 +135,7 @@ export default function Results() {
           <View style={[card, styles.minds]}>
             <Text style={type.label}>Minds moved</Text>
             <Text style={styles.mindsCount}>
-              {minds.moved}/{minds.total}
+              {minds.movedCount}/{minds.total}
             </Text>
             {moveLine && <Text style={styles.moveLine}>{moveLine}</Text>}
             <MovementScale members={minds.members} youId={userId} sideA={room?.topic?.sideA} sideB={room?.topic?.sideB} />

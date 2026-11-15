@@ -42,7 +42,7 @@ export const api = {
     send: mutation<{ roomId: Id; userId: Id; text: string }, null>("rooms:send"),
     live: query<{ topicId?: Id }, LiveRoom[]>("rooms:live"),
     setPositionAfter: mutation<{ roomId: Id; userId: Id; position: number }, null>("rooms:setPositionAfter"),
-    mindsMoved: query<{ roomId: Id }, MindsMoved | null>("rooms:mindsMoved"),
+    mindsMoved: query<{ roomId: Id }, MindsMoved>("rooms:mindsMoved"),
   },
   summaries: {
     forRoom: query<{ roomId: Id; userId: Id }, RoomSummaries | null>("summaries:forRoom"),

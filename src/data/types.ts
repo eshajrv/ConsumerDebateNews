@@ -85,18 +85,17 @@ export type LiveRoom = {
   members: { name: string; position: number; band: Band }[];
 };
 
-// rooms.mindsMoved: before is the stance at join, after is what rooms.setPositionAfter saved (null until then).
-// towardName is the room member whose view this member moved toward (null if they held).
-export type MindsMovedMember = {
-  userId: Id<"users">;
-  name: string;
-  before: number;
-  after: number | null;
-  moved: boolean;
-  towardName: string | null;
-};
+// rooms.mindsMoved: before is the stance at join; after and shift (after - before) are null until rooms.setPositionAfter.
+// movedCount counts members whose |shift| is 10 or more.
+export type MindsMovedMember = { userId: Id<"users">; name: string; before: number; after: number | null; shift: number | null };
 
-export type MindsMoved = { moved: number; total: number; members: MindsMovedMember[] };
+export type MindsMoved = {
+  members: MindsMovedMember[];
+  movedCount: number;
+  total: number;
+  averageGapBefore: number;
+  averageGapAfter: number;
+};
 
 export type GuessPick = "first" | "second";
 

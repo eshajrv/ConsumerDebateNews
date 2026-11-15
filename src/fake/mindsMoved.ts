@@ -2,7 +2,7 @@ import type { Id, MindsMoved, MindsMovedMember, Room } from "../data/types";
 import { getRoom } from "./rooms";
 import { changed } from "./store";
 
-const MOVED_POINTS = 5;
+const MOVED = 10;
 const PULL_TO_MIDDLE = 0.3;
 
 const liveRooms = new Map<Id, Room>();
@@ -22,25 +22,25 @@ export async function setPositionAfter({ roomId, userId, position }: { roomId: I
       saved.set(m.userId, i % 3 === 2 ? m.position : Math.round(m.position + (middle - m.position) * PULL_TO_MIDDLE));
     });
   }
-  saved.set(userId, position);
+  saved.set(userId, Math.max(0, Math.min(100, Math.round(position))));
   positionsAfter.set(roomId, saved);
   changed();
   return null;
 }
 
-export function mindsMoved({ roomId }: { roomId: Id }): MindsMoved | null {
+export function mindsMoved({ roomId }: { roomId: Id }): MindsMoved {
   const room = liveRooms.get(roomId) ?? getRoom({ roomId });
-  if (!room) return null;
   const saved = positionsAfter.get(roomId);
-  const members: MindsMovedMember[] = room.members.map((m) => {
+  const members: MindsMovedMember[] = (room?.members ?? []).map((m) => {
     const after = saved?.get(m.userId) ?? null;
-    const moved = after !== null && Math.abs(after - m.position) >= MOVED_POINTS;
-    const toward = moved
-      ? room.members
-          .filter((o) => o.userId !== m.userId && Math.sign(o.position - m.position) === Math.sign(after - m.position))
-          .sort((a, b) => Math.abs(a.position - after) - Math.abs(b.position - after))[0]
-      : undefined;
-    return { userId: m.userId, name: m.name, before: m.position, after, moved, towardName: toward?.name ?? null };
+    return { userId: m.userId, name: m.name, before: m.position, after, shift: after === null ? null : after - m.position };
   });
-  return { moved: members.filter((m) => m.moved).length, total: members.length, members };
+  const gap = (ps: number[]) => (ps.length ? Math.max(...ps) - Math.min(...ps) : 0);
+  return {
+    members,
+    movedCount: members.filter((m) => m.shift !== null && Math.abs(m.shift) >= MOVED).length,
+    total: members.length,
+    averageGapBefore: gap(members.map((m) => m.before)),
+    averageGapAfter: gap(members.map((m) => m.after ?? m.before)),
+  };
 }
