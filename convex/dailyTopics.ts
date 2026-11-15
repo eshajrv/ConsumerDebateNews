@@ -9,6 +9,7 @@
 import { internalAction, internalMutation, internalQuery, mutation, query, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { askClaude, extractJson } from "./lib/claude";
 
 // Feeds and their lean. Leans are approximate: check each outlet on allsides.com/media-bias.
@@ -273,23 +274,25 @@ export const today = query({
 });
 
 // Live numbers on each card: how people split, and how many are talking right now.
+export async function topicStats(ctx: QueryCtx, topicId: Id<"topics">) {
+  const stances = await ctx.db
+    .query("stances")
+    .withIndex("by_topic", (q) => q.eq("topicId", topicId))
+    .collect();
+  const leanA = stances.filter((s) => s.position < 50).length;
+  const live = await ctx.db
+    .query("conversations")
+    .withIndex("by_topic_status", (q) => q.eq("topicId", topicId).eq("status", "live"))
+    .collect();
+  return {
+    total: stances.length,
+    leanA,
+    leanB: stances.length - leanA,
+    talkingNow: live.length * 2,
+  };
+}
+
 export const stats = query({
   args: { topicId: v.id("topics") },
-  handler: async (ctx, { topicId }) => {
-    const stances = await ctx.db
-      .query("stances")
-      .withIndex("by_topic", (q) => q.eq("topicId", topicId))
-      .collect();
-    const leanA = stances.filter((s) => s.position < 50).length;
-    const live = await ctx.db
-      .query("conversations")
-      .withIndex("by_topic_status", (q) => q.eq("topicId", topicId).eq("status", "live"))
-      .collect();
-    return {
-      total: stances.length,
-      leanA,
-      leanB: stances.length - leanA,
-      talkingNow: live.length * 2,
-    };
-  },
+  handler: async (ctx, { topicId }) => topicStats(ctx, topicId),
 });

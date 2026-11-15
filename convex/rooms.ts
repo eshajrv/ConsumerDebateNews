@@ -11,7 +11,7 @@ import {
   QueryCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 import { askClaude, extractJson } from "./lib/claude";
 import { notify } from "./notify";
@@ -159,36 +159,42 @@ export const next = query({
   },
 });
 
+// Shared by rooms.join and the Keiki join endpoint
+export async function joinRoom(
+  ctx: MutationCtx,
+  { userId, topicId, allowSpectators }: { userId: Id<"users">; topicId: Id<"topics">; allowSpectators?: boolean },
+): Promise<Id<"rooms">> {
+  const stance = await ctx.db
+    .query("stances")
+    .withIndex("by_user_topic", (q) => q.eq("userId", userId).eq("topicId", topicId))
+    .unique();
+  if (!stance) throw new ConvexError("Set where you stand first");
+
+  // Already waiting (or chatting) in a room on this topic? Return it.
+  const memberships = await ctx.db
+    .query("roomMembers")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  for (const m of memberships) {
+    if (m.left) continue;
+    const room = await ctx.db.get(m.roomId);
+    if (room && room.topicId === topicId && (room.status === "waiting" || room.status === "live")) {
+      return room._id;
+    }
+  }
+
+  return placeInRoom(ctx, {
+    userId,
+    topicId,
+    position: stance.position,
+    allowSpectators: allowSpectators ?? true,
+    slotStart: nextSlot(Date.now()),
+  });
+}
+
 export const join = mutation({
   args: { userId: v.id("users"), topicId: v.id("topics"), allowSpectators: v.optional(v.boolean()) },
-  handler: async (ctx, { userId, topicId, allowSpectators }) => {
-    const stance = await ctx.db
-      .query("stances")
-      .withIndex("by_user_topic", (q) => q.eq("userId", userId).eq("topicId", topicId))
-      .unique();
-    if (!stance) throw new Error("Set where you stand first");
-
-    // Already waiting (or chatting) in a room on this topic? Return it.
-    const memberships = await ctx.db
-      .query("roomMembers")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    for (const m of memberships) {
-      if (m.left) continue;
-      const room = await ctx.db.get(m.roomId);
-      if (room && room.topicId === topicId && (room.status === "waiting" || room.status === "live")) {
-        return room._id;
-      }
-    }
-
-    return placeInRoom(ctx, {
-      userId,
-      topicId,
-      position: stance.position,
-      allowSpectators: allowSpectators ?? true,
-      slotStart: nextSlot(Date.now()),
-    });
-  },
+  handler: async (ctx, args) => joinRoom(ctx, args),
 });
 
 export const get = query({
