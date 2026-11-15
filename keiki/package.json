@@ -1,0 +1,19 @@
+{
+  "name": "practify-keiki",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Practify texting agent on Keiki (@onkeiki/agents)",
+  "type": "module",
+  "scripts": {
+    "sync": "bun run src/sync.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@onkeiki/agents": "^0.1.7",
+    "effect": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}
