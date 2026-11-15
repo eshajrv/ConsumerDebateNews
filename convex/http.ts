@@ -9,6 +9,7 @@
 //   GET  /keiki/feed?phone=      -> the user's 4 topics (shared first) with live split
 //   POST /keiki/take             { phone, topicId, text }  -> { status: "saved", position, take } | { status: "unclear", followUp }
 //   POST /keiki/join             { phone, topicId }        -> { roomId, slot, link, code }
+//   GET  /join?code=<code>       -> public HTML page showing the room code and an "Open Practify" button
 //
 // Every endpoint requires the header "x-practify-key" to equal KEIKI_SHARED_SECRET (set in Convex
 // and synced to Keiki). The phone is always the texter's own number; no other number is ever returned.
@@ -128,7 +129,7 @@ http.route({
     if (!feed) return json({ error: "user not found" }, 404);
     return json({
       date: feed.date,
-      topics: feed.topics.map((t) => ({ ...t, link: `${APP_LINK}/topic/${t.id}` })),
+      topics: feed.topics,
     });
   }),
 });
@@ -205,7 +206,51 @@ http.route({
     const r = await ctx.runMutation(internal.keiki.join, { phone, topicId });
     if ("error" in r)
       return json({ error: r.error }, r.error === "user not found" || r.error === "topic not found" ? 404 : 400);
-    return json({ roomId: r.roomId, slot: r.slot, link: `practify://join/${r.code}`, code: r.code });
+    const link = `${process.env.CONVEX_SITE_URL}/join?code=${r.code}`;
+    return json({ roomId: r.roomId, slot: r.slot, link, code: r.code });
+  }),
+});
+
+// Public page behind the join links Keiki texts out (Messages can't open practify:// links directly)
+const joinPage = (code: string | null) => {
+  const body = code
+    ? `<p class="label">Your Practify room code</p>
+    <p class="code">${code}</p>
+    <p>Open the Practify app and enter this code</p>
+    <a class="button" href="practify://join/${code}">Open Practify</a>`
+    : `<p>This link is missing a code.</p>`;
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Practify room code</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #fff; color: #1f2933; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    text-align: center; }
+  main { padding: 32px 24px; max-width: 420px; }
+  p { font-size: 17px; line-height: 1.5; margin: 0 0 16px; }
+  .label { color: #52606d; }
+  .code { font-size: 56px; font-weight: 700; letter-spacing: 8px; margin: 8px 0 24px; color: #3b5bdb; }
+  .button { display: inline-block; margin-top: 8px; padding: 16px 32px; border-radius: 16px; background: #3b5bdb;
+    color: #fff; font-size: 17px; font-weight: 600; text-decoration: none; }
+</style>
+</head>
+<body><main>${body}</main></body>
+</html>`;
+};
+
+http.route({
+  path: "/join",
+  method: "GET",
+  handler: httpAction(async (_ctx, req) => {
+    const raw = new URL(req.url).searchParams.get("code")?.trim() ?? "";
+    const code = /^\d{6}$/.test(raw) ? raw : null;
+    return new Response(joinPage(code), {
+      status: code ? 200 : 400,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
   }),
 });
 
