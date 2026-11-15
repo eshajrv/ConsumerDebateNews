@@ -132,6 +132,7 @@ export default defineSchema({
     agreementLine: v.optional(v.string()), // judge's closing line
     allowSpectators: v.optional(v.boolean()),
     movedToRoomId: v.optional(v.id("rooms")), // set when rolled: where (most) members went
+    mode: v.optional(v.union(v.literal("duo"), v.literal("group"))), // missing = "group"
   })
     .index("by_topic_and_slotStart", ["topicId", "slotStart"])
     .index("by_status_and_slotStart", ["status", "slotStart"]),

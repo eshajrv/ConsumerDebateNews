@@ -21,8 +21,12 @@ const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 const FIRST_SLOT = 7 * 60; // 7:00 AM Pacific, in minutes after midnight
 const LAST_SLOT = 22 * 60; // 10:00 PM Pacific
-const MAX_MEMBERS = 6;
-const MIN_TO_START = 2;
+const MAX_MEMBERS = { duo: 2, group: 6 };
+const MIN_TO_START = { duo: 2, group: 2 };
+
+type Mode = "duo" | "group";
+export const modeValidator = v.union(v.literal("duo"), v.literal("group"));
+const modeOf = (room: Doc<"rooms">): Mode => room.mode ?? "group";
 const MIN_SPREAD = 40;
 const ROOM_MS = 10 * MINUTE;
 const NUDGE_MS = 4 * MINUTE;
@@ -94,6 +98,7 @@ async function placeInRoom(
     position: number;
     allowSpectators: boolean;
     slotStart: number;
+    mode: Mode;
   },
 ): Promise<Id<"rooms">> {
   const band = bandOf(args.position);
@@ -104,9 +109,9 @@ async function placeInRoom(
 
   let best: { room: Doc<"rooms">; sameBand: number; total: number } | null = null;
   for (const room of rooms) {
-    if (room.status !== "waiting") continue;
+    if (room.status !== "waiting" || modeOf(room) !== args.mode) continue;
     const members = await activeMembers(ctx, room._id);
-    if (members.length >= MAX_MEMBERS) continue;
+    if (members.length >= MAX_MEMBERS[args.mode]) continue;
     const sameBand = members.filter((m) => m.band === band).length;
     if (!best || sameBand < best.sameBand || (sameBand === best.sameBand && members.length < best.total)) {
       best = { room, sameBand, total: members.length };
@@ -123,6 +128,7 @@ async function placeInRoom(
       slotStart: args.slotStart,
       status: "waiting",
       allowSpectators: args.allowSpectators,
+      mode: args.mode,
     });
     await ctx.scheduler.runAt(args.slotStart, internal.rooms.checkStart, { roomId });
     if (args.slotStart - MINUTE > Date.now()) {
@@ -144,8 +150,8 @@ async function placeInRoom(
 
 // "Next room 8:15, 4 joined". `now` comes from the phone (queries can't read the clock).
 export const next = query({
-  args: { topicId: v.id("topics"), now: v.number() },
-  handler: async (ctx, { topicId, now }) => {
+  args: { topicId: v.id("topics"), now: v.number(), mode: v.optional(modeValidator) },
+  handler: async (ctx, { topicId, now, mode }) => {
     const slot = nextSlot(now);
     const rooms = await ctx.db
       .query("rooms")
@@ -153,7 +159,9 @@ export const next = query({
       .collect();
     let joinedCount = 0;
     for (const room of rooms) {
-      if (room.status === "waiting") joinedCount += (await activeMembers(ctx, room._id)).length;
+      if (room.status === "waiting" && modeOf(room) === (mode ?? "group")) {
+        joinedCount += (await activeMembers(ctx, room._id)).length;
+      }
     }
     return { slot, joinedCount };
   },
@@ -162,7 +170,12 @@ export const next = query({
 // Shared by rooms.join and the Keiki join endpoint
 export async function joinRoom(
   ctx: MutationCtx,
-  { userId, topicId, allowSpectators }: { userId: Id<"users">; topicId: Id<"topics">; allowSpectators?: boolean },
+  {
+    userId,
+    topicId,
+    allowSpectators,
+    mode,
+  }: { userId: Id<"users">; topicId: Id<"topics">; allowSpectators?: boolean; mode?: Mode },
 ): Promise<Id<"rooms">> {
   const stance = await ctx.db
     .query("stances")
@@ -189,11 +202,17 @@ export async function joinRoom(
     position: stance.position,
     allowSpectators: allowSpectators ?? true,
     slotStart: nextSlot(Date.now()),
+    mode: mode ?? "group",
   });
 }
 
 export const join = mutation({
-  args: { userId: v.id("users"), topicId: v.id("topics"), allowSpectators: v.optional(v.boolean()) },
+  args: {
+    userId: v.id("users"),
+    topicId: v.id("topics"),
+    allowSpectators: v.optional(v.boolean()),
+    mode: v.optional(modeValidator),
+  },
   handler: async (ctx, args) => joinRoom(ctx, args),
 });
 
@@ -301,7 +320,8 @@ export const checkStart = internalMutation({
     const positions = members.map((m) => m.position);
     const spread = positions.length ? Math.max(...positions) - Math.min(...positions) : 0;
 
-    if (members.length >= MIN_TO_START && spread >= MIN_SPREAD) {
+    const mode = modeOf(room);
+    if (members.length >= MIN_TO_START[mode] && spread >= MIN_SPREAD) {
       const endsAt = Date.now() + ROOM_MS;
       await ctx.db.patch(roomId, { status: "live", endsAt });
       await ctx.scheduler.runAfter(0, internal.rooms.writeOpener, { roomId });
@@ -319,6 +339,7 @@ export const checkStart = internalMutation({
         position: m.position,
         allowSpectators: m.allowSpectators,
         slotStart,
+        mode,
       });
       movedCount.set(newRoomId, (movedCount.get(newRoomId) ?? 0) + 1);
       await ctx.db.patch(m._id, { movedToRoomId: newRoomId });
