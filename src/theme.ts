@@ -32,3 +32,12 @@ export const card = {
   borderColor: colors.border,
   padding: spacing.lg,
 };
+
+const hex = (c: string) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+const mix = (a: string, b: string, t: number) =>
+  `rgb(${hex(a).map((v, i) => Math.round(v + (hex(b)[i] - v) * t)).join(",")})`;
+
+export function positionColor(position: number) {
+  const p = Math.max(0, Math.min(100, position)) / 100;
+  return p < 0.5 ? mix(colors.sideA, "#B9B9C2", p * 2) : mix("#B9B9C2", colors.sideB, (p - 0.5) * 2);
+}
