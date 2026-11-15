@@ -2,6 +2,7 @@ import { makeFunctionReference } from "convex/server";
 
 import type {
   AppNotification,
+  GuessPick,
   Id,
   LeaderboardEntry,
   LeaderboardPeriod,
@@ -10,7 +11,7 @@ import type {
   OnboardArgs,
   Room,
   RoomMessage,
-  Summary,
+  RoomSummaries,
   Topic,
   TopicStats,
   User,
@@ -40,9 +41,9 @@ export const api = {
     live: query<{ topicId?: Id }, LiveRoom[]>("rooms:live"),
   },
   summaries: {
-    forRoom: query<{ roomId: Id }, Summary[]>("summaries:forRoom"),
+    forRoom: query<{ roomId: Id; userId: Id }, RoomSummaries | null>("summaries:forRoom"),
     submit: mutation<{ roomId: Id; authorId: Id; text: string }, null>("summaries:submit"),
-    guess: mutation<{ summaryId: Id; userId: Id; pick: "first" | "second" }, null>("summaries:guess"),
+    guess: mutation<{ summaryId: Id; userId: Id; pick: GuessPick }, null>("summaries:guess"),
     rate: mutation<{ summaryId: Id; userId: Id; gotMeRating: number }, null>("summaries:rate"),
   },
   notifications: {

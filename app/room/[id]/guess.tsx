@@ -4,11 +4,9 @@ import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, V
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../../src/components/Button";
-import { useGuessSummary, useRateSummary, useRoom, useRoomSummaries } from "../../../src/data";
+import { type GuessPick, useGuessSummary, useRateSummary, useRoomSummaries } from "../../../src/data";
 import { useSavedUserId } from "../../../src/session";
 import { card, colors, radius, spacing, type } from "../../../src/theme";
-
-type Pick = "first" | "second";
 
 type FlipCardProps = {
   letter: string;
@@ -53,18 +51,17 @@ function FlipCard({ letter, text, flip, revealed, isHuman, authorName, picked, d
 export default function GuessAndRate() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = useSavedUserId();
-  const room = useRoom(id);
-  const summaries = useRoomSummaries(id);
+  const data = useRoomSummaries(id, userId);
   const guess = useGuessSummary();
   const rate = useRateSummary();
-  const [pick, setPick] = useState<Pick | null>(null);
+  const [pick, setPick] = useState<GuessPick | null>(null);
   const [stars, setStars] = useState(0);
   const [rating, setRating] = useState(false);
   const [flipA] = useState(() => new Animated.Value(0));
   const [flipB] = useState(() => new Animated.Value(0));
 
-  const mine = userId ? summaries?.find((s) => s.aboutUserId === userId) : undefined;
-  const revealed = !!mine?.guessed && !!mine.humanIs;
+  const mine = data?.summaries.find((s) => s.aboutMe);
+  const revealed = !!mine?.guessed && mine.humanIs !== null;
 
   useEffect(() => {
     if (!revealed) return;
@@ -74,10 +71,10 @@ export default function GuessAndRate() {
     ]).start();
   }, [revealed, flipA, flipB]);
 
-  if (!room || !summaries || !userId) {
+  if (!data || !userId) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
-        {room === null ? <Text style={type.body}>Room not found.</Text> : <ActivityIndicator color={colors.accent} />}
+        {data === null ? <Text style={type.body}>Room not found.</Text> : <ActivityIndicator color={colors.accent} />}
       </SafeAreaView>
     );
   }
@@ -92,14 +89,19 @@ export default function GuessAndRate() {
   }
 
   const summary = mine;
-  const authorName = room.members.find((m) => m.userId === summary.authorId)?.name ?? "Someone";
-  const rated = summary.gotMeRating !== undefined;
-  const shownStars = rated ? summary.gotMeRating! : stars;
+  const authorName = summary.authorName || "Someone";
+  const rated = summary.gotMeRating !== null;
+  const shownStars = summary.gotMeRating ?? stars;
+  const myPick = (summary.subjectGuess as GuessPick | null) ?? pick;
 
-  async function choose(which: Pick) {
+  async function choose(which: GuessPick) {
     if (summary.guessed || pick || !userId) return;
     setPick(which);
-    await guess({ summaryId: summary._id, userId, pick: which });
+    try {
+      await guess({ summaryId: summary._id, userId, pick: which });
+    } catch {
+      setPick(null);
+    }
   }
 
   async function sendRating() {
@@ -128,15 +130,15 @@ export default function GuessAndRate() {
             revealed={revealed}
             isHuman={summary.humanIs === which}
             authorName={authorName}
-            picked={pick === which}
+            picked={myPick === which}
             disabled={summary.guessed || !!pick}
             onPress={() => choose(which)}
           />
         ))}
 
-        {revealed && pick && (
+        {revealed && myPick && (
           <Text style={styles.verdict}>
-            {pick === summary.humanIs ? "You spotted the human." : `You couldn't tell! ${authorName} gets +20.`}
+            {myPick === summary.humanIs ? "You spotted the human." : `You couldn't tell! ${authorName} gets +20.`}
           </Text>
         )}
 
@@ -160,10 +162,10 @@ export default function GuessAndRate() {
           </View>
         )}
 
-        {room.agreementLine && (
+        {data.agreementLine && (
           <View style={styles.agreement}>
             <Text style={type.label}>Where the group agreed</Text>
-            <Text style={styles.agreementText}>{room.agreementLine}</Text>
+            <Text style={styles.agreementText}>{data.agreementLine}</Text>
           </View>
         )}
       </ScrollView>

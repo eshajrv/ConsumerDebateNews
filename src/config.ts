@@ -2,7 +2,7 @@ export const FAKE = {
   users: false,
   feed: false,
   rooms: false,
-  summaries: true,
+  summaries: false,
   notifications: true,
   leaderboard: true,
   links: false,

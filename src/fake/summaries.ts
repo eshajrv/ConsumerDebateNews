@@ -1,4 +1,4 @@
-import type { Id, Room, Summary } from "../data/types";
+import type { Id, Room, RoomSummaries, Summary } from "../data/types";
 import { getTopic } from "./feed";
 import { getRoom } from "./rooms";
 import { changed, newId } from "./store";
@@ -41,19 +41,27 @@ export function rememberRoom(room: Room) {
 
 const roomFor = (roomId: Id) => liveRooms.get(roomId) ?? getRoom({ roomId });
 
-const toSummary = (s: FakeSummary): Summary => {
+const nameOf = (room: Room | null | undefined, userId: Id) =>
+  room?.members.find((m) => m.userId === userId)?.name ?? fakeUsers.find((u) => u._id === userId)?.name ?? "";
+
+const toSummary = (s: FakeSummary, userId: Id, room: Room | null | undefined): Summary => {
   const guessed = s.subjectGuess !== undefined;
   const ready = s.aiText !== undefined;
+  const aboutMe = s.aboutUserId === userId;
   return {
     _id: s._id,
     authorId: s.authorId,
+    authorName: nameOf(room, s.authorId),
     aboutUserId: s.aboutUserId,
+    aboutName: nameOf(room, s.aboutUserId),
+    aboutMe,
     ready,
-    options: ready ? (s.humanIsFirst ? [s.humanText, s.aiText!] : [s.aiText!, s.humanText]) : null,
+    options: ready && (aboutMe || guessed) ? (s.humanIsFirst ? [s.humanText, s.aiText!] : [s.aiText!, s.humanText]) : null,
     guessed,
-    humanIs: guessed ? (s.humanIsFirst ? "first" : "second") : undefined,
-    gotMeRating: s.gotMeRating,
-    points: s.points,
+    subjectGuess: s.subjectGuess ?? null,
+    humanIs: guessed ? (s.humanIsFirst ? "first" : "second") : null,
+    gotMeRating: s.gotMeRating ?? null,
+    points: s.points ?? null,
   };
 };
 
@@ -101,8 +109,14 @@ function applyRating(s: FakeSummary, gotMeRating: number) {
   if (topic) author.insight = `You're most open on ${topic.category} topics.`;
 }
 
-export function summariesForRoom({ roomId }: { roomId: Id }): Summary[] {
-  return fakeSummaries.filter((s) => s.roomId === roomId).map(toSummary);
+export function summariesForRoom({ roomId, userId }: { roomId: Id; userId: Id }): RoomSummaries | null {
+  const room = roomFor(roomId);
+  if (!room) return null;
+  return {
+    status: room.status,
+    agreementLine: room.agreementLine ?? null,
+    summaries: fakeSummaries.filter((s) => s.roomId === roomId).map((s) => toSummary(s, userId, room)),
+  };
 }
 
 export async function submitSummary({ roomId, authorId, text }: { roomId: Id; authorId: Id; text: string }): Promise<null> {

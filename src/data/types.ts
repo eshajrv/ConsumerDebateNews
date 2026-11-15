@@ -85,16 +85,28 @@ export type LiveRoom = {
   members: { name: string; position: number; band: Band }[];
 };
 
+export type GuessPick = "first" | "second";
+
 export type Summary = {
   _id: Id<"summaries">;
   authorId: Id<"users">;
+  authorName: string;
   aboutUserId: Id<"users">;
+  aboutName: string;
+  aboutMe: boolean;
   ready: boolean;
   options: [string, string] | null;
   guessed: boolean;
-  humanIs?: "first" | "second";
-  gotMeRating?: number;
-  points?: number;
+  subjectGuess: string | null;
+  humanIs: GuessPick | null;
+  gotMeRating: number | null;
+  points: number | null;
+};
+
+export type RoomSummaries = {
+  status: RoomStatus;
+  agreementLine: string | null;
+  summaries: Summary[];
 };
 
 export type AppNotification = {
