@@ -72,10 +72,47 @@ export const context = internalQuery({
   },
 });
 
-// Runs after someone rates a summary. Stores one memory for each of the two people.
+// Runs after someone rates a summary (summaryId), or after a room member says where they stand
+// now (shift), so Supermemory tracks how each person's views change.
 export const remember = internalAction({
-  args: { summaryId: v.id("summaries") },
-  handler: async (ctx, { summaryId }) => {
+  args: {
+    summaryId: v.optional(v.id("summaries")),
+    shift: v.optional(
+      v.object({
+        roomId: v.id("rooms"),
+        userId: v.id("users"),
+        name: v.string(),
+        date: v.string(),
+        category: v.string(),
+        question: v.string(),
+        sideA: v.string(),
+        sideB: v.string(),
+        before: v.number(),
+        after: v.number(),
+      }),
+    ),
+  },
+  handler: async (ctx, { summaryId, shift }) => {
+    if (shift) {
+      const s = shift;
+      const moved = Math.abs(s.after - s.before) >= 10;
+      try {
+        await new Supermemory().add(ns(s.userId), {
+          id: `${s.roomId}-${s.userId}-shift`,
+          content:
+            `On ${s.date}, after a group conversation about the ${s.category} question "${s.question}", ` +
+            `${s.name} went from ${lean(s.before, s.sideA, s.sideB)} (${s.before}/100) to ` +
+            `${lean(s.after, s.sideA, s.sideB)} (${s.after}/100)` +
+            (moved ? ", so the conversation changed their mind." : ", so their view held steady."),
+        });
+      } catch (e) {
+        console.log(`Supermemory add failed: ${(e as Error).message}`);
+        return;
+      }
+      await ctx.scheduler.runAfter(0, internal.memory.updateInsight, { userId: s.userId });
+      return;
+    }
+    if (!summaryId) return;
     const d = await ctx.runQuery(internal.memory.context, { summaryId });
     if (!d) return;
     try {

@@ -145,6 +145,7 @@ export default defineSchema({
     civility: v.optional(v.number()), // 1-5, AI-rated at the end
     left: v.optional(v.boolean()),
     movedToRoomId: v.optional(v.id("rooms")), // set when this member's room rolled
+    positionAfter: v.optional(v.number()), // "Minds moved": where they stand after the chat, 0-100
   })
     .index("by_room", ["roomId"])
     .index("by_user", ["userId"])
