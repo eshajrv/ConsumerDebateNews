@@ -107,15 +107,21 @@ async function placeInRoom(
     .withIndex("by_topic_and_slotStart", (q) => q.eq("topicId", args.topicId).eq("slotStart", args.slotStart))
     .collect();
 
-  let best: { room: Doc<"rooms">; sameBand: number; total: number } | null = null;
+  // Rooms need a band-M member to start, so a band-M user first goes to a room with no M yet.
+  // Otherwise: the room with the fewest people from the user's band, then the emptier room.
+  let best: { room: Doc<"rooms">; needsMiddle: boolean; sameBand: number; total: number } | null = null;
   for (const room of rooms) {
     if (room.status !== "waiting" || modeOf(room) !== args.mode) continue;
     const members = await activeMembers(ctx, room._id);
     if (members.length >= MAX_MEMBERS[args.mode]) continue;
     const sameBand = members.filter((m) => m.band === band).length;
-    if (!best || sameBand < best.sameBand || (sameBand === best.sameBand && members.length < best.total)) {
-      best = { room, sameBand, total: members.length };
-    }
+    const needsMiddle = band === "M" && !members.some((m) => m.band === "M");
+    const better =
+      !best ||
+      (needsMiddle && !best.needsMiddle) ||
+      (needsMiddle === best.needsMiddle &&
+        (sameBand < best.sameBand || (sameBand === best.sameBand && members.length < best.total)));
+    if (better) best = { room, needsMiddle, sameBand, total: members.length };
   }
 
   let roomId: Id<"rooms">;
@@ -319,9 +325,12 @@ export const checkStart = internalMutation({
     const members = await activeMembers(ctx, roomId);
     const positions = members.map((m) => m.position);
     const spread = positions.length ? Math.max(...positions) - Math.min(...positions) : 0;
-
     const mode = modeOf(room);
-    if (members.length >= MIN_TO_START[mode] && spread >= MIN_SPREAD) {
+    // Middle person rule (group rooms): someone in band M (36-64) keeps the room from
+    // splitting into two camps. Duos are 1-on-1 and only need the spread.
+    const hasMiddle = mode === "duo" || members.some((m) => m.band === "M");
+
+    if (members.length >= MIN_TO_START[mode] && spread >= MIN_SPREAD && hasMiddle) {
       const endsAt = Date.now() + ROOM_MS;
       await ctx.db.patch(roomId, { status: "live", endsAt });
       await ctx.scheduler.runAfter(0, internal.rooms.writeOpener, { roomId });
