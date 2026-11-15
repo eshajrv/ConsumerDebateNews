@@ -80,6 +80,10 @@ export const useRoom = (roomId: Id) => {
 export const useRoomMessages = (roomId: Id) => useRoomsData(api.rooms.messages, { roomId }, rooms.roomMessages);
 export const useSendMessage = () => useRoomsAction(api.rooms.send, rooms.sendMessage);
 export const useLiveRooms = (topicId?: Id) => useRoomsData(api.rooms.live, topicId ? { topicId } : {}, rooms.liveRooms);
+export const useFeaturedRoom = () => {
+  const now = Math.floor(useNow(15_000) / 15_000) * 15_000;
+  return useRoomsData(api.rooms.featured, { now }, rooms.featuredRoom);
+};
 export const useSetPositionAfter = () => useRoomsAction(api.rooms.setPositionAfter, rooms.setPositionAfter);
 export const useMindsMoved = (roomId: Id) => useRoomsData(api.rooms.mindsMoved, { roomId }, rooms.mindsMoved);
 

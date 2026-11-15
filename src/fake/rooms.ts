@@ -1,4 +1,4 @@
-import type { Band, Id, LiveRoom, MindsMoved, NextRoom, Room, RoomMember, RoomMessage, RoomMessageKind } from "../data/types";
+import type { Band, FeaturedRoom, Id, LiveRoom, MindsMoved, NextRoom, Room, RoomMember, RoomMessage, RoomMessageKind } from "../data/types";
 import { getTopic } from "./feed";
 import { changed, newId } from "./store";
 import { getUser, stances } from "./users";
@@ -212,4 +212,9 @@ export function mindsMoved({ roomId }: { roomId: Id }): MindsMoved {
     averageGapBefore: gap(members.map((m) => m.before)),
     averageGapAfter: gap(members.map((m) => m.after ?? m.before)),
   };
+}
+
+export function featuredRoom(_args: { topicId?: Id; now?: number }): FeaturedRoom | null {
+  const room = liveRooms({})[0];
+  return room ? { ...room, recentMessages: fakeMessages.filter((m) => m.roomId === room._id).length } : null;
 }

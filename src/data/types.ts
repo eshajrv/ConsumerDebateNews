@@ -97,6 +97,8 @@ export type MindsMoved = {
   averageGapAfter: number;
 };
 
+export type FeaturedRoom = LiveRoom & { recentMessages: number };
+
 export type LiveRoom = {
   _id: Id<"rooms">;
   topicId: Id<"topics">;
