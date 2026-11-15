@@ -5,13 +5,52 @@
 // 3. The person being summarized sees both (random order) and guesses which one is human.
 // 4. Then they rate "Did they get you?" (1-5). Points go to the author.
 // Spectators can also guess which summary is human.
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+// Group rooms work the same way, except each member summarizes one assigned person (the circle).
+import { internalMutation, internalQuery, mutation, query, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
+import { Doc, Id } from "./_generated/dataModel";
+import { notify } from "./notify";
+
+async function submitForRoom(ctx: MutationCtx, roomId: Id<"rooms">, authorId: Id<"users">, text: string) {
+  const room = await ctx.db.get(roomId);
+  if (!room) throw new ConvexError("Room not found");
+  if (room.status !== "summarizing") throw new ConvexError("Summaries open when the chat ends");
+  const member = await ctx.db
+    .query("roomMembers")
+    .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", authorId))
+    .unique();
+  if (!member || !member.summarizesUserId) throw new ConvexError("You're not in this room's circle");
+  const clean = text.trim().slice(0, 300);
+  if (!clean) throw new ConvexError("Write a sentence first");
+  if (!/^you\b/i.test(clean)) throw new ConvexError('Start your sentence with "You"');
+
+  const existing = await ctx.db
+    .query("summaries")
+    .withIndex("by_room", (q) => q.eq("roomId", roomId))
+    .collect();
+  if (existing.some((s) => s.authorId === authorId)) throw new ConvexError("You already submitted");
+
+  const summaryId = await ctx.db.insert("summaries", {
+    roomId,
+    authorId,
+    aboutUserId: member.summarizesUserId,
+    humanText: clean,
+    humanIsFirst: Math.random() < 0.5,
+  });
+  await ctx.scheduler.runAfter(0, internal.ai.writeAiSummary, { summaryId });
+}
 
 export const submit = mutation({
-  args: { conversationId: v.id("conversations"), authorId: v.id("users"), text: v.string() },
-  handler: async (ctx, { conversationId, authorId, text }) => {
+  args: {
+    conversationId: v.optional(v.id("conversations")),
+    roomId: v.optional(v.id("rooms")),
+    authorId: v.id("users"),
+    text: v.string(),
+  },
+  handler: async (ctx, { conversationId, roomId, authorId, text }) => {
+    if (roomId) return submitForRoom(ctx, roomId, authorId, text);
+    if (!conversationId) throw new Error("Pass a roomId or a conversationId");
     const c = await ctx.db.get(conversationId);
     if (!c) throw new Error("Conversation not found");
     if (c.status === "live") throw new Error("Summaries open when the conversation ends");
@@ -61,6 +100,47 @@ export const forConversation = query({
   },
 });
 
+// Group room results. For the summary about `userId`, both options show right away (in random order)
+// but which one is human stays hidden until they guess. Other summaries in the room are revealed once
+// their subject has guessed.
+export const forRoom = query({
+  args: { roomId: v.id("rooms"), userId: v.id("users") },
+  handler: async (ctx, { roomId, userId }) => {
+    const room = await ctx.db.get(roomId);
+    if (!room) return null;
+    const list = await ctx.db
+      .query("summaries")
+      .withIndex("by_room", (q) => q.eq("roomId", roomId))
+      .collect();
+    const summaries = await Promise.all(
+      list.map(async (s) => {
+        const guessed = s.subjectGuess !== undefined;
+        const aboutMe = s.aboutUserId === userId;
+        const visible = s.aiText !== undefined && (aboutMe || guessed);
+        const [author, about] = await Promise.all([ctx.db.get(s.authorId), ctx.db.get(s.aboutUserId)]);
+        return {
+          _id: s._id,
+          authorId: s.authorId,
+          authorName: author?.name ?? "",
+          aboutUserId: s.aboutUserId,
+          aboutName: about?.name ?? "",
+          aboutMe,
+          ready: s.aiText !== undefined,
+          options: visible
+            ? ((s.humanIsFirst ? [s.humanText, s.aiText] : [s.aiText, s.humanText]) as [string, string])
+            : null,
+          guessed,
+          subjectGuess: s.subjectGuess ?? null,
+          humanIs: guessed ? (s.humanIsFirst ? "first" : "second") : null,
+          gotMeRating: s.gotMeRating ?? null,
+          points: s.points ?? null,
+        };
+      }),
+    );
+    return { status: room.status, agreementLine: room.agreementLine ?? null, summaries };
+  },
+});
+
 // Step 3: the person being summarized guesses which option a human wrote
 export const guess = mutation({
   args: {
@@ -96,7 +176,15 @@ export const rate = mutation({
     const author = await ctx.db.get(s.authorId);
     if (author) {
       const score = Math.max(0, Math.min(100, author.goodFaithScore + (rating - 3) * 2));
-      await ctx.db.patch(s.authorId, { goodFaithScore: score });
+      await ctx.db.patch(s.authorId, {
+        goodFaithScore: score,
+        ...(s.roomId && { totalPoints: (author.totalPoints ?? 0) + points }),
+      });
+    }
+
+    if (s.roomId) {
+      await finishRoomIfRated(ctx, s.roomId);
+      return;
     }
 
     // Conversation is done once both summaries are rated
@@ -111,6 +199,29 @@ export const rate = mutation({
     }
   },
 });
+
+// The room is done once every member in the circle has been summarized and has rated it
+async function finishRoomIfRated(ctx: MutationCtx, roomId: Id<"rooms">) {
+  const room = await ctx.db.get(roomId);
+  if (!room || room.status !== "summarizing") return;
+  const members = (
+    await ctx.db
+      .query("roomMembers")
+      .withIndex("by_room", (q) => q.eq("roomId", roomId))
+      .collect()
+  ).filter((m) => m.summarizesUserId);
+  const summaries = await ctx.db
+    .query("summaries")
+    .withIndex("by_room", (q) => q.eq("roomId", roomId))
+    .collect();
+  const rated = (m: Doc<"roomMembers">) =>
+    summaries.some((s) => s.authorId === m.userId && s.gotMeRating !== undefined);
+  if (!members.every(rated)) return;
+  await ctx.db.patch(roomId, { status: "done" });
+  for (const m of members) {
+    await notify(ctx, m.userId, "Your results are in", `practify://results/${roomId}`);
+  }
+}
 
 // Spectators guess too
 export const spectatorVote = mutation({
@@ -151,11 +262,36 @@ export const contextFor = internalQuery({
   args: { summaryId: v.id("summaries") },
   handler: async (ctx, { summaryId }) => {
     const s = await ctx.db.get(summaryId);
-    if (!s || !s.conversationId) return null;
+    if (!s) return null;
+    const about = await ctx.db.get(s.aboutUserId);
+    if (s.roomId) {
+      const roomId = s.roomId;
+      const room = await ctx.db.get(roomId);
+      const topic = room && (await ctx.db.get(room.topicId));
+      if (!topic) return null;
+      const member = await ctx.db
+        .query("roomMembers")
+        .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", s.aboutUserId))
+        .unique();
+      const msgs = await ctx.db
+        .query("roomMessages")
+        .withIndex("by_room", (q) => q.eq("roomId", roomId))
+        .collect();
+      return {
+        humanText: s.humanText,
+        aboutName: about?.name ?? "them",
+        question: topic.question,
+        sideA: topic.sideA,
+        sideB: topic.sideB,
+        aboutPosition: member?.position ?? 50,
+        theirMessages: msgs.filter((m) => m.kind === "user" && m.userId === s.aboutUserId).map((m) => m.text),
+      };
+    }
+    if (!s.conversationId) return null;
     const conversationId = s.conversationId;
     const c = await ctx.db.get(conversationId);
     if (!c) return null;
-    const [topic, about] = await Promise.all([ctx.db.get(c.topicId), ctx.db.get(s.aboutUserId)]);
+    const topic = await ctx.db.get(c.topicId);
     const msgs = await ctx.db
       .query("messages")
       .withIndex("by_conversation", (q) => q.eq("conversationId", conversationId))
@@ -164,6 +300,9 @@ export const contextFor = internalQuery({
       humanText: s.humanText,
       aboutName: about?.name ?? "them",
       question: topic?.question ?? "",
+      sideA: topic?.sideA ?? "",
+      sideB: topic?.sideB ?? "",
+      aboutPosition: s.aboutUserId === c.userA ? c.positionA : c.positionB,
       theirMessages: msgs.filter((m) => m.userId === s.aboutUserId).map((m) => m.text),
     };
   },

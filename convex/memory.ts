@@ -11,6 +11,7 @@
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { Supermemory } from "supermemory";
 import { askClaude } from "./lib/claude";
 
@@ -28,16 +29,31 @@ export const context = internalQuery({
   args: { summaryId: v.id("summaries") },
   handler: async (ctx, { summaryId }) => {
     const s = await ctx.db.get(summaryId);
-    if (!s || s.gotMeRating === undefined || !s.conversationId) return null;
-    const c = await ctx.db.get(s.conversationId);
-    if (!c) return null;
+    if (!s || s.gotMeRating === undefined) return null;
+    let topicId: Id<"topics">;
+    let aboutPosition: number;
+    if (s.roomId) {
+      const roomId = s.roomId;
+      const room = await ctx.db.get(roomId);
+      const member = await ctx.db
+        .query("roomMembers")
+        .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", s.aboutUserId))
+        .unique();
+      if (!room || !member) return null;
+      topicId = room.topicId;
+      aboutPosition = member.position;
+    } else {
+      const c = s.conversationId && (await ctx.db.get(s.conversationId));
+      if (!c) return null;
+      topicId = c.topicId;
+      aboutPosition = s.aboutUserId === c.userA ? c.positionA : c.positionB;
+    }
     const [topic, author, about] = await Promise.all([
-      ctx.db.get(c.topicId),
+      ctx.db.get(topicId),
       ctx.db.get(s.authorId),
       ctx.db.get(s.aboutUserId),
     ]);
     if (!topic || !author || !about) return null;
-    const aboutPosition = s.aboutUserId === c.userA ? c.positionA : c.positionB;
     return {
       date: topic.date,
       category: topic.category,

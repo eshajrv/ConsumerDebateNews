@@ -490,6 +490,7 @@ export const end = internalMutation({
       });
     }
     await ctx.scheduler.runAfter(0, internal.rooms.writeClosing, { roomId });
+    await ctx.scheduler.runAfter(0, internal.ai.rateRoomCivility, { roomId });
   },
 });
 
@@ -514,5 +515,47 @@ Return only the sentence.`;
       }
     }
     await ctx.runMutation(internal.rooms.addJudgeMessage, { roomId, kind: "closing", text });
+  },
+});
+
+// Messages labeled by speaker number (no names), for the civility rating
+export const civilityTranscript = internalQuery({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    const msgs = await ctx.db
+      .query("roomMessages")
+      .withIndex("by_room", (q) => q.eq("roomId", roomId))
+      .collect();
+    const speakers: Id<"users">[] = [];
+    const lines: string[] = [];
+    for (const m of msgs) {
+      if (m.kind !== "user" || !m.userId) continue;
+      if (!speakers.includes(m.userId)) speakers.push(m.userId);
+      lines.push(`${speakers.indexOf(m.userId) + 1}: ${m.text}`);
+    }
+    return { speakers, lines };
+  },
+});
+
+// Saves each member's AI civility rating and nudges their good-faith score by (civility - 3) x 2
+export const setCivility = internalMutation({
+  args: {
+    roomId: v.id("rooms"),
+    ratings: v.array(v.object({ userId: v.id("users"), civility: v.number() })),
+  },
+  handler: async (ctx, { roomId, ratings }) => {
+    for (const { userId, civility } of ratings) {
+      const member = await ctx.db
+        .query("roomMembers")
+        .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", userId))
+        .unique();
+      if (!member || member.civility !== undefined) continue;
+      await ctx.db.patch(member._id, { civility });
+      const user = await ctx.db.get(userId);
+      if (!user) continue;
+      await ctx.db.patch(userId, {
+        goodFaithScore: Math.max(0, Math.min(100, user.goodFaithScore + (civility - 3) * 2)),
+      });
+    }
   },
 });
