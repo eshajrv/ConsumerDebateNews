@@ -4,7 +4,7 @@
 //   - feed.rank (action) asks Supermemory what the user engages with, has Claude order the
 //     9 non-shared topics, and saves that order for today.
 //   - feed.forUser uses the saved order if there is one, else the user's picked interests.
-import { action, internalMutation, internalQuery, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, query, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
@@ -14,33 +14,35 @@ import { liveTopics, pacificDate } from "./dailyTopics";
 
 const PICKS_PER_USER = 3;
 
+export async function feedForUser(ctx: QueryCtx, userId: Id<"users">, date: string) {
+  const topics = await liveTopics(ctx, date);
+  const shared = topics.find((t) => t.isShared === true);
+  const others = topics.filter((t) => t !== shared);
+
+  const saved = await ctx.db
+    .query("feedOrders")
+    .withIndex("by_user_and_date", (q) => q.eq("userId", userId).eq("date", date))
+    .unique();
+
+  let ranked: Doc<"topics">[];
+  if (saved) {
+    const byId = new Map(others.map((t) => [t._id, t]));
+    const inOrder = saved.topicIds.flatMap((id) => byId.get(id) ?? []);
+    ranked = [...inOrder, ...others.filter((t) => !saved.topicIds.includes(t._id))];
+  } else {
+    const user = await ctx.db.get(userId);
+    const interests = new Set((user?.interests ?? []).map((i) => i.toLowerCase()));
+    const picked = (t: Doc<"topics">) => interests.has(t.category.toLowerCase());
+    ranked = [...others.filter(picked), ...others.filter((t) => !picked(t))];
+  }
+
+  const top = ranked.slice(0, PICKS_PER_USER);
+  return shared ? [shared, ...top] : top;
+}
+
 export const forUser = query({
   args: { userId: v.id("users"), date: v.string() },
-  handler: async (ctx, { userId, date }) => {
-    const topics = await liveTopics(ctx, date);
-    const shared = topics.find((t) => t.isShared === true);
-    const others = topics.filter((t) => t !== shared);
-
-    const saved = await ctx.db
-      .query("feedOrders")
-      .withIndex("by_user_and_date", (q) => q.eq("userId", userId).eq("date", date))
-      .unique();
-
-    let ranked: Doc<"topics">[];
-    if (saved) {
-      const byId = new Map(others.map((t) => [t._id, t]));
-      const inOrder = saved.topicIds.flatMap((id) => byId.get(id) ?? []);
-      ranked = [...inOrder, ...others.filter((t) => !saved.topicIds.includes(t._id))];
-    } else {
-      const user = await ctx.db.get(userId);
-      const interests = new Set((user?.interests ?? []).map((i) => i.toLowerCase()));
-      const picked = (t: Doc<"topics">) => interests.has(t.category.toLowerCase());
-      ranked = [...others.filter(picked), ...others.filter((t) => !picked(t))];
-    }
-
-    const top = ranked.slice(0, PICKS_PER_USER);
-    return shared ? [shared, ...top] : top;
-  },
+  handler: async (ctx, { userId, date }) => feedForUser(ctx, userId, date),
 });
 
 export const rank = action({
