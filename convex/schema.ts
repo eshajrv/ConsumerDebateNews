@@ -106,6 +106,13 @@ export default defineSchema({
     guess: v.string(),
   }).index("by_summary", ["summaryId"]),
 
+  // A user's ranked feed for one day, saved by feed.rank (non-shared topics, best first)
+  feedOrders: defineTable({
+    userId: v.id("users"),
+    date: v.string(), // "YYYY-MM-DD" Pacific
+    topicIds: v.array(v.id("topics")),
+  }).index("by_user_and_date", ["userId", "date"]),
+
   // ---------- Group rooms ----------
 
   // One room per topic per slot (more if the first fills up)

@@ -12,6 +12,7 @@ import type * as ai from "../ai.js";
 import type * as conversations from "../conversations.js";
 import type * as crons from "../crons.js";
 import type * as dailyTopics from "../dailyTopics.js";
+import type * as feed from "../feed.js";
 import type * as http from "../http.js";
 import type * as lib_claude from "../lib/claude.js";
 import type * as matching from "../matching.js";
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   conversations: typeof conversations;
   crons: typeof crons;
   dailyTopics: typeof dailyTopics;
+  feed: typeof feed;
   http: typeof http;
   "lib/claude": typeof lib_claude;
   matching: typeof matching;
