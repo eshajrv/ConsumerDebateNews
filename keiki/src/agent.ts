@@ -3,6 +3,8 @@ import { Effect } from 'effect'
 import { getFeed, getTopic, joinRoom, registerUser, saveTake } from './tools.js'
 
 const env = (name: string) => {
+  // Bun script, not the Expo app: Expo's static env inlining doesn't apply here.
+  // eslint-disable-next-line expo/no-dynamic-env-var
   const value = process.env[name]
   if (!value) throw new Error(`Missing ${name}: copy keiki/.env.example to keiki/.env and fill it in`)
   return value
