@@ -13,7 +13,7 @@ export function useResumeRoom(userId: string | null | undefined) {
 
   const room = useRoomIfAny(userId ? (roomId ?? null) : null);
   const stillIn =
-    !!room && !!userId && (room.status === "waiting" || room.status === "live") && room.members.some((m) => m.userId === userId);
+    !!room && !!userId && (room.status === "waiting" || room.status === "live") && room.members.some((m) => m.userId === userId && !(room.status === "live" && m.leftAt));
   const stale = !!roomId && !!userId && room !== undefined && !stillIn;
 
   useEffect(() => {
