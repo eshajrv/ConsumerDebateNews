@@ -19,7 +19,7 @@ export default function Join() {
           <BackButton />
         </View>
         <View style={styles.body}>
-          <Text style={type.question}>What&apos;s the password?</Text>
+          <Text style={type.question}>Enter your join code</Text>
           <Text style={styles.hint}>Six digits, in the text or link we sent you.</Text>
           <TextInput
             value={code.length > 3 ? `${code.slice(0, 3)} ${code.slice(3)}` : code}

@@ -30,7 +30,7 @@ export default function JoinWithLink() {
       </View>
       {error && (
         <View style={styles.footer}>
-          <Button title="Enter the password" onPress={() => router.replace("/join")} />
+          <Button title="Enter the join code" onPress={() => router.replace("/join")} />
         </View>
       )}
     </SafeAreaView>

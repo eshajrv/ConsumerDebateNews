@@ -214,7 +214,7 @@ export default function Onboarding() {
           />
           {step === 0 && (
             <Pressable onPress={() => router.push("/join")} hitSlop={12} style={styles.codeLink}>
-              <Text style={styles.back}>Have a password?</Text>
+              <Text style={styles.back}>Have a join code?</Text>
             </Pressable>
           )}
         </View>

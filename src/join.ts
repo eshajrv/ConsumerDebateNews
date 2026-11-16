@@ -17,7 +17,7 @@ export function useJoinWithCode() {
       await saveUserId(userId);
       router.replace(`/room/${roomId}`);
     } catch {
-      setError("That password didn't work. Check it and try again.");
+      setError("That join code didn't work. Check it and try again.");
       setJoining(false);
     }
   }
