@@ -235,9 +235,12 @@ export const get = query({
         .withIndex("by_room", (q) => q.eq("roomId", roomId))
         .collect(),
     ]);
+    const active = members.filter((m) => !m.left);
     return {
       ...room,
       topic,
+      endVotes: active.filter((m) => m.wantsToEnd).length,
+      activeCount: active.length,
       members: await Promise.all(
         members.map(async (m) => ({
           userId: m.userId,
@@ -248,6 +251,7 @@ export const get = query({
           summarizesUserId: m.summarizesUserId,
           movedToRoomId: m.movedToRoomId,
           leftAt: m.leftAt ?? null,
+          wantsToEnd: m.wantsToEnd ?? false,
         })),
       ),
     };
@@ -611,7 +615,44 @@ export const leave = mutation({
     }
     await ctx.db.insert("roomMessages", { roomId, kind: "left", text: `${user?.name ?? "Someone"} left the room.` });
 
-    if ((await activeMembers(ctx, roomId)).length < 2) await endRoom(ctx, roomId);
+    const remaining = await activeMembers(ctx, roomId);
+    if (remaining.length < 2) {
+      await endRoom(ctx, roomId);
+    } else if (remaining.every((m) => m.wantsToEnd)) {
+      await ctx.db.insert("roomMessages", { roomId, kind: "vote", text: "Everyone agreed to wrap up early." });
+      await endRoom(ctx, roomId);
+    }
+  },
+});
+
+// Vote to wrap up early. When every member still in the room says yes, it ends like the timer does.
+export const voteEnd = mutation({
+  args: { roomId: v.id("rooms"), userId: v.id("users"), wantsToEnd: v.boolean() },
+  handler: async (ctx, { roomId, userId, wantsToEnd }) => {
+    const room = await ctx.db.get(roomId);
+    if (!room || room.status !== "live") throw new ConvexError("You can only vote while the chat is live.");
+    const member = await ctx.db
+      .query("roomMembers")
+      .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", userId))
+      .unique();
+    if (!member || member.left) throw new ConvexError("You're not in this room.");
+    if ((member.wantsToEnd ?? false) === wantsToEnd) return;
+    await ctx.db.patch(member._id, { wantsToEnd });
+    if (!wantsToEnd) return;
+
+    const active = await activeMembers(ctx, roomId);
+    const votes = active.filter((m) => m.wantsToEnd).length;
+    if (votes === active.length) {
+      await ctx.db.insert("roomMessages", { roomId, kind: "vote", text: "Everyone agreed to wrap up early." });
+      await endRoom(ctx, roomId);
+      return;
+    }
+    const name = (await ctx.db.get(userId))?.name ?? "Someone";
+    await ctx.db.insert("roomMessages", {
+      roomId,
+      kind: "vote",
+      text: `${name} is ready to wrap up (${votes} of ${active.length}).`,
+    });
   },
 });
 
