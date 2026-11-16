@@ -578,7 +578,7 @@ async function endRoom(ctx: MutationCtx, roomId: Id<"rooms">) {
     const j = Math.floor(Math.random() * (i + 1));
     [circle[i], circle[j]] = [circle[j], circle[i]];
   }
-  for (let i = 0; i < circle.length; i++) {
+  for (let i = 0; circle.length >= 2 && i < circle.length; i++) {
     await ctx.db.patch(circle[i]._id, {
       circleOrder: i,
       summarizesUserId: circle[(i + 1) % circle.length].userId,
