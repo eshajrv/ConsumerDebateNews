@@ -54,6 +54,7 @@ export type RoomMember = {
   band: Band;
   circleOrder?: number;
   summarizesUserId?: Id<"users">;
+  movedToRoomId?: Id<"rooms">;
 };
 
 export type Room = {
@@ -65,6 +66,8 @@ export type Room = {
   endsAt?: number;
   agreementLine?: string;
   allowSpectators?: boolean;
+  mode?: RoomMode;
+  movedToRoomId?: Id<"rooms">;
   topic: Topic | null;
   members: RoomMember[];
 };

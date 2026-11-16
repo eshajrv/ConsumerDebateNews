@@ -8,7 +8,7 @@ import { Button } from "../../src/components/Button";
 import { SplitBar } from "../../src/components/SplitBar";
 import { StanceSlider } from "../../src/components/StanceSlider";
 import { type RoomMode, useFeed, useJoinRoom, useNextRoom, useSetStance, useTopicStats } from "../../src/data";
-import { formatTime, pacificDate, todayString } from "../../src/date";
+import { pacificDate, todayString } from "../../src/date";
 import { useSavedUserId } from "../../src/session";
 import { colors, fonts, radius, spacing, type } from "../../src/theme";
 
@@ -46,7 +46,7 @@ function JoinOption({
         <>
           <Text style={styles.optionTitle}>{option.title}</Text>
           <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
-          <Text style={styles.optionNext}>{next ? `Next table ${formatTime(next.slot)} · ${next.joinedCount} at the table` : " "}</Text>
+          <Text style={styles.optionNext}>{next ? (next.joinedCount ? `${next.joinedCount} waiting at the table` : "Be the first to sit down") : " "}</Text>
         </>
       )}
     </Pressable>

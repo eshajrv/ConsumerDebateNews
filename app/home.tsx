@@ -9,7 +9,7 @@ import { ProfileButton } from "../src/components/ProfileButton";
 import { SplitBar } from "../src/components/SplitBar";
 import { Trophy } from "../src/components/Trophy";
 import { type Topic, useFeed, useNextRoom, useNotifications, useTopicStats, useUser } from "../src/data";
-import { formatTime, pacificDate } from "../src/date";
+import { pacificDate } from "../src/date";
 import { clearUserId, useSavedUserId } from "../src/session";
 import { card, colors, fonts, spacing, type } from "../src/theme";
 
@@ -26,7 +26,7 @@ function HouseTableCard({ topic }: { topic: Topic }) {
       <View style={styles.password}>
         <Text style={styles.passwordLabel}>Next table</Text>
         <Text style={styles.passwordValue}>
-          {next ? `${formatTime(next.slot)} · ${next.joinedCount} at the table` : " "}
+          {next ? (next.joinedCount ? `${next.joinedCount} waiting at the table` : "No one waiting yet") : " "}
         </Text>
       </View>
       <Button title="Pull up a chair" variant="feature" onPress={open} />
@@ -46,7 +46,7 @@ function TopicCard({ topic }: { topic: Topic }) {
       <Text style={type.category}>{topic.category}</Text>
       <Text style={styles.question}>{topic.question}</Text>
       <SplitBar stats={stats} sideA={topic.sideA} sideB={topic.sideB} />
-      <Text style={styles.next}>{next ? `Next table ${formatTime(next.slot)} · ${next.joinedCount} at the table` : " "}</Text>
+      <Text style={styles.next}>{next ? (next.joinedCount ? `${next.joinedCount} waiting at the table` : "No one waiting yet") : " "}</Text>
     </Pressable>
   );
 }
