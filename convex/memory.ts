@@ -17,6 +17,9 @@ import { askClaude } from "./lib/claude";
 
 const ns = (userId: string) => `user_${userId}`;
 
+// New memories take ~10 seconds to become searchable, so re-rank the feed a bit later
+const RANK_DELAY_MS = 15_000;
+
 const lean = (position: number, sideA: string, sideB: string) => {
   if (position <= 20) return `strongly "${sideA}"`;
   if (position < 45) return `leaning "${sideA}"`;
@@ -111,7 +114,7 @@ export const remember = internalAction({
         return;
       }
       await ctx.scheduler.runAfter(0, internal.memory.updateInsight, { userId: s.userId });
-      await ctx.scheduler.runAfter(0, internal.feed.rankForUser, { userId: s.userId });
+      await ctx.scheduler.runAfter(RANK_DELAY_MS, internal.feed.rankForUser, { userId: s.userId });
       return;
     }
     if (!summaryId) return;
@@ -146,8 +149,8 @@ export const remember = internalAction({
     await ctx.scheduler.runAfter(0, internal.memory.updateInsight, { userId: d.aboutId });
     await ctx.scheduler.runAfter(0, internal.memory.updateInsight, { userId: d.authorId });
     // What they engage with just changed, so re-rank today's feed for both people
-    await ctx.scheduler.runAfter(0, internal.feed.rankForUser, { userId: d.aboutId });
-    await ctx.scheduler.runAfter(0, internal.feed.rankForUser, { userId: d.authorId });
+    await ctx.scheduler.runAfter(RANK_DELAY_MS, internal.feed.rankForUser, { userId: d.aboutId });
+    await ctx.scheduler.runAfter(RANK_DELAY_MS, internal.feed.rankForUser, { userId: d.authorId });
   },
 });
 
@@ -214,11 +217,16 @@ export const selfTest = internalAction({
         content: `Self test: ${marker}. The tester likes talking about air traffic control.`,
         dreaming: "instant",
       });
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      const { results } = await client.search(namespace, { query: "What does the tester like talking about?", limit: 5 });
-      const found = results.map((r) => r.memory ?? r.chunk ?? "").filter((m) => m.length > 0);
-      if (found.length === 0) {
-        console.log("Supermemory selfTest FAIL: the memory was added but search returned nothing");
+      // "instant" memories still take ~10 seconds to index, so retry for up to 30 seconds
+      let found: string[] = [];
+      for (let waited = 5; waited <= 30 && !found.some((m) => m.includes(marker)); waited += 5) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        const { results } = await client.search(namespace, { query: "What does the tester like talking about?", limit: 5 });
+        found = results.map((r) => r.memory ?? r.chunk ?? "").filter((m) => m.length > 0);
+        console.log(`selfTest: after ${waited}s, ${found.length} result(s)`);
+      }
+      if (!found.some((m) => m.includes(marker))) {
+        console.log(`Supermemory selfTest FAIL: the memory was added but search didn't return it after 30s (found ${JSON.stringify(found)})`);
         return { ok: false, found };
       }
       console.log(`Supermemory selfTest PASS: found ${found.length} result(s): ${JSON.stringify(found)}`);
