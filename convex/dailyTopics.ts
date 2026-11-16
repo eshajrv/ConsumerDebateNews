@@ -204,6 +204,15 @@ export const generate = internalAction({
     // 4. Publish (replaces today's set if forced)
     await ctx.runMutation(internal.dailyTopics.publishDay, { date, topics: cards });
     console.log(`Published ${topics.length} topics for ${date}`);
+
+    // Rank today's feed for everyone active in the last 7 days (spread out a little)
+    const since = new Date(`${date}T12:00:00Z`);
+    since.setUTCDate(since.getUTCDate() - 7);
+    const userIds = await ctx.runQuery(internal.feed.activeUserIds, { since: since.toISOString().slice(0, 10) });
+    for (const [i, userId] of userIds.entries()) {
+      await ctx.scheduler.runAfter(i * 500, internal.feed.rankForUser, { userId });
+    }
+    console.log(`Scheduled feed ranking for ${userIds.length} active users`);
   },
 });
 

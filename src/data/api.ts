@@ -47,6 +47,7 @@ export const api = {
     setPositionAfter: mutation<{ roomId: Id; userId: Id; position: number }, null>("rooms:setPositionAfter"),
     mindsMoved: query<{ roomId: Id }, MindsMoved>("rooms:mindsMoved"),
     leave: mutation<{ roomId: Id; userId: Id }, null>("rooms:leave"),
+    voteEnd: mutation<{ roomId: Id; userId: Id; wantsToEnd: boolean }, null>("rooms:voteEnd"),
   },
   summaries: {
     forRoom: query<{ roomId: Id; userId: Id }, RoomSummaries | null>("summaries:forRoom"),

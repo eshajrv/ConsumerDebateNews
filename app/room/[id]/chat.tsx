@@ -4,7 +4,7 @@ import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pre
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../../src/components/Button";
-import { type RoomMessage, useLeaveRoom, useRoom, useRoomMessages, useSendMessage } from "../../../src/data";
+import { type RoomMessage, useLeaveRoom, useRoom, useRoomMessages, useSendMessage, useVoteEnd } from "../../../src/data";
 import { formatCountdown, useNow } from "../../../src/date";
 import { errorMessage } from "../../../src/errors";
 import { useSavedUserId } from "../../../src/session";
@@ -19,12 +19,14 @@ export default function GroupChat() {
   const messages = useRoomMessages(id);
   const send = useSendMessage();
   const leave = useLeaveRoom();
+  const voteEnd = useVoteEnd();
   const now = useNow();
   const list = useRef<FlatList<RoomMessage>>(null);
   const [text, setText] = useState("");
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [wantsToEnd, setWantsToEnd] = useState(false);
 
   const status = room?.status;
   useEffect(() => {
@@ -44,12 +46,24 @@ export default function GroupChat() {
   const opener = messages.find((m) => m.kind === "opener");
   const shown = messages.filter((m) => m !== opener);
   const memberById = new Map(room.members.map((m) => [m.userId, m]));
+  const endVotes = Math.max(room.endVotes ?? 0, wantsToEnd ? 1 : 0);
+  const activeCount = room.activeCount ?? room.members.length;
 
   async function submit() {
     const clean = text.trim();
     if (!clean || !userId) return;
     setText("");
     await send({ roomId: id, userId, text: clean });
+  }
+
+  async function setEndVote(next: boolean) {
+    if (!userId) return;
+    setWantsToEnd(next);
+    try {
+      await voteEnd({ roomId: id, userId, wantsToEnd: next });
+    } catch {
+      setWantsToEnd(!next);
+    }
   }
 
   async function leaveRoom() {
@@ -97,6 +111,28 @@ export default function GroupChat() {
             </Pressable>
           </View>
         </View>
+
+        {room.status === "live" && (
+          <View style={styles.endRow}>
+            {wantsToEnd ? (
+              <>
+                <Text style={styles.endWaiting}>{`Waiting for others · ${endVotes}/${activeCount}`}</Text>
+                <Pressable onPress={() => setEndVote(false)} hitSlop={8} accessibilityRole="button">
+                  {({ pressed }) => <Text style={[styles.undo, pressed && { opacity: 0.7 }]}>Undo</Text>}
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                onPress={() => setEndVote(true)}
+                hitSlop={8}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.endPill, pressed && { opacity: 0.7 }]}
+              >
+                <Text style={styles.endPillText}>End debate</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
 
         {opener && (
           <View style={styles.pinned}>
@@ -200,6 +236,11 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   leave: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingVertical: spacing.xs, paddingHorizontal: spacing.md - 4 },
   leaveText: { fontSize: 13, fontFamily: fonts.semibold, color: colors.muted },
+  endRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: spacing.sm, paddingHorizontal: spacing.screen, paddingBottom: spacing.sm },
+  endPill: { borderWidth: 1, borderColor: colors.text, borderRadius: radius.pill, paddingVertical: spacing.xs, paddingHorizontal: spacing.md - 4 },
+  endPillText: { fontSize: 13, fontFamily: fonts.semibold, color: colors.text },
+  endWaiting: { fontSize: 13, fontFamily: fonts.medium, color: colors.muted, fontVariant: ["tabular-nums"] },
+  undo: { fontSize: 13, fontFamily: fonts.semibold, color: colors.accent, textDecorationLine: "underline" },
   timer: { fontSize: 20, fontFamily: fonts.bold, color: colors.text, fontVariant: ["tabular-nums"] },
   pinned: { marginHorizontal: spacing.screen, padding: spacing.md, borderRadius: radius.card, backgroundColor: colors.surface, gap: spacing.xs },
   pinnedText: { fontSize: 16, fontFamily: fonts.semibold, lineHeight: 22, color: colors.text },

@@ -17,6 +17,9 @@ import { askClaude } from "./lib/claude";
 
 const ns = (userId: string) => `user_${userId}`;
 
+// New memories take ~10 seconds to become searchable, so re-rank the feed a bit later
+const RANK_DELAY_MS = 15_000;
+
 const lean = (position: number, sideA: string, sideB: string) => {
   if (position <= 20) return `strongly "${sideA}"`;
   if (position < 45) return `leaning "${sideA}"`;
@@ -99,6 +102,7 @@ export const remember = internalAction({
       try {
         await new Supermemory().add(ns(s.userId), {
           id: `${s.roomId}-${s.userId}-shift`,
+          dreaming: "instant", // searchable right away
           content:
             `On ${s.date}, after a group conversation about the ${s.category} question "${s.question}", ` +
             `${s.name} went from ${lean(s.before, s.sideA, s.sideB)} (${s.before}/100) to ` +
@@ -110,6 +114,7 @@ export const remember = internalAction({
         return;
       }
       await ctx.scheduler.runAfter(0, internal.memory.updateInsight, { userId: s.userId });
+      await ctx.scheduler.runAfter(RANK_DELAY_MS, internal.feed.rankForUser, { userId: s.userId });
       return;
     }
     if (!summaryId) return;
@@ -120,6 +125,7 @@ export const remember = internalAction({
       // About the person whose view was summarized
       await client.add(ns(d.aboutId), {
         id: `${summaryId}-view`,
+        dreaming: "instant",
         content:
           `On ${d.date}, ${d.aboutName} discussed the ${d.category} question "${d.question}" ` +
           `and was ${lean(d.aboutPosition, d.sideA, d.sideB)}. ` +
@@ -129,6 +135,7 @@ export const remember = internalAction({
       // About the person who wrote the summary (how well they listen)
       await client.add(ns(d.authorId), {
         id: `${summaryId}-listening`,
+        dreaming: "instant",
         content:
           `On ${d.date}, ${d.authorName} talked with someone who disagreed with them about the ` +
           `${d.category} question "${d.question}". ${d.authorName} summarized the other person's ` +
@@ -141,6 +148,9 @@ export const remember = internalAction({
     }
     await ctx.scheduler.runAfter(0, internal.memory.updateInsight, { userId: d.aboutId });
     await ctx.scheduler.runAfter(0, internal.memory.updateInsight, { userId: d.authorId });
+    // What they engage with just changed, so re-rank today's feed for both people
+    await ctx.scheduler.runAfter(RANK_DELAY_MS, internal.feed.rankForUser, { userId: d.aboutId });
+    await ctx.scheduler.runAfter(RANK_DELAY_MS, internal.feed.rankForUser, { userId: d.authorId });
   },
 });
 
@@ -189,5 +199,41 @@ export const setInsight = internalMutation({
   args: { userId: v.id("users"), insight: v.string() },
   handler: async (ctx, { userId, insight }) => {
     await ctx.db.patch(userId, { insight: insight.slice(0, 200) });
+  },
+});
+
+// Checks the Supermemory key and connection end to end:
+//   npx convex run memory:selfTest
+// Adds a test memory to "user_selftest", waits 5 seconds, searches for it, and logs PASS or FAIL.
+export const selfTest = internalAction({
+  args: {},
+  handler: async () => {
+    const namespace = "user_selftest";
+    const marker = `speak-easy self test ${Date.now()}`;
+    try {
+      const client = new Supermemory();
+      await client.add(namespace, {
+        id: "selftest",
+        content: `Self test: ${marker}. The tester likes talking about air traffic control.`,
+        dreaming: "instant",
+      });
+      // "instant" memories still take ~10 seconds to index, so retry for up to 30 seconds
+      let found: string[] = [];
+      for (let waited = 5; waited <= 30 && !found.some((m) => m.includes(marker)); waited += 5) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        const { results } = await client.search(namespace, { query: "What does the tester like talking about?", limit: 5 });
+        found = results.map((r) => r.memory ?? r.chunk ?? "").filter((m) => m.length > 0);
+        console.log(`selfTest: after ${waited}s, ${found.length} result(s)`);
+      }
+      if (!found.some((m) => m.includes(marker))) {
+        console.log(`Supermemory selfTest FAIL: the memory was added but search didn't return it after 30s (found ${JSON.stringify(found)})`);
+        return { ok: false, found };
+      }
+      console.log(`Supermemory selfTest PASS: found ${found.length} result(s): ${JSON.stringify(found)}`);
+      return { ok: true, found };
+    } catch (e) {
+      console.log(`Supermemory selfTest FAIL: ${(e as Error).message}`);
+      return { ok: false, error: (e as Error).message };
+    }
   },
 });

@@ -5,7 +5,7 @@
 //   - feed.rank (action) asks Supermemory what the user engages with, has Claude order the
 //     9 non-shared topics, and saves that order for today.
 //   - feed.forUser fills the slots, using the saved order within each slot if there is one.
-import { action, internalMutation, internalQuery, query, QueryCtx } from "./_generated/server";
+import { action, ActionCtx, internalAction, internalMutation, internalQuery, query, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
@@ -67,27 +67,46 @@ export const forUser = query({
   handler: async (ctx, { userId, date }) => feedForUser(ctx, userId, date),
 });
 
+// Public wrapper (part of the backend contract); the work happens in rankForUser.
 export const rank = action({
   args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
-    const date = pacificDate();
-    const data = await ctx.runQuery(internal.feed.rankContext, { userId, date });
-    if (!data || data.topics.length === 0) return null;
+  handler: async (ctx, { userId }): Promise<null> => rankUser(ctx, userId),
+});
 
-    let memories: string[];
-    try {
-      const { results } = await new Supermemory().search(`user_${userId}`, {
-        query: `Which news topics and categories does ${data.name} engage with and care about?`,
-        limit: 10,
-      });
-      memories = results.map((r) => r.memory ?? r.chunk ?? "").filter((m) => m.length > 0);
-    } catch (e) {
-      console.log(`feed.rank: Supermemory search failed: ${(e as Error).message}`);
-      return null;
-    }
-    if (memories.length === 0) return null; // nothing to go on; forUser uses interests
+// Scheduled after memory.remember and after each day's topics are published.
+export const rankForUser = internalAction({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }): Promise<null> => rankUser(ctx, userId),
+});
 
-    const prompt = `You order a news feed for ${data.name} by how interesting each topic will be to them.
+// Users active in the last 7 days (by lastActiveDate, "YYYY-MM-DD"), for the daily ranking
+export const activeUserIds = internalQuery({
+  args: { since: v.string() },
+  handler: async (ctx, { since }) => {
+    const users = await ctx.db.query("users").take(2000);
+    return users.filter((u) => (u.lastActiveDate ?? "") >= since).map((u) => u._id);
+  },
+});
+
+async function rankUser(ctx: ActionCtx, userId: Id<"users">): Promise<null> {
+  const date = pacificDate();
+  const data = await ctx.runQuery(internal.feed.rankContext, { userId, date });
+  if (!data || data.topics.length === 0) return null;
+
+  let memories: string[];
+  try {
+    const { results } = await new Supermemory().search(`user_${userId}`, {
+      query: `Which news topics and categories does ${data.name} engage with and care about?`,
+      limit: 10,
+    });
+    memories = results.map((r) => r.memory ?? r.chunk ?? "").filter((m) => m.length > 0);
+  } catch (e) {
+    console.log(`feed.rank: Supermemory search failed: ${(e as Error).message}`);
+    return null;
+  }
+  if (memories.length === 0) return null; // nothing to go on; forUser uses interests
+
+  const prompt = `You order a news feed for ${data.name} by how interesting each topic will be to them.
 Use only what they engage with, never which side they are on.
 
 What we know about what they engage with:
@@ -100,22 +119,21 @@ ${data.topics.map((t) => `- id ${t.id} [${t.category}] ${t.question}`).join("\n"
 
 Return ONLY a JSON array of all the topic ids, most interesting first.`;
 
-    let order: string[];
-    try {
-      order = extractJson<string[]>(await askClaude(prompt, 600));
-    } catch (e) {
-      console.log(`feed.rank: Claude failed: ${(e as Error).message}`);
-      return null;
-    }
-    if (!Array.isArray(order)) return null;
-
-    const known = data.topics.map((t) => t.id);
-    const ranked = [...new Set(order)].filter((id): id is Id<"topics"> => known.includes(id as Id<"topics">));
-    const topicIds = [...ranked, ...known.filter((id) => !ranked.includes(id))];
-    await ctx.runMutation(internal.feed.saveOrder, { userId, date, topicIds });
+  let order: string[];
+  try {
+    order = extractJson<string[]>(await askClaude(prompt, 600));
+  } catch (e) {
+    console.log(`feed.rank: Claude failed: ${(e as Error).message}`);
     return null;
-  },
-});
+  }
+  if (!Array.isArray(order)) return null;
+
+  const known = data.topics.map((t) => t.id);
+  const ranked = [...new Set(order)].filter((id): id is Id<"topics"> => known.includes(id as Id<"topics">));
+  const topicIds = [...ranked, ...known.filter((id) => !ranked.includes(id))];
+  await ctx.runMutation(internal.feed.saveOrder, { userId, date, topicIds });
+  return null;
+}
 
 export const rankContext = internalQuery({
   args: { userId: v.id("users"), date: v.string() },

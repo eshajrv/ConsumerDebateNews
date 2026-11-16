@@ -149,6 +149,7 @@ export default defineSchema({
     civility: v.optional(v.number()), // 1-5, AI-rated at the end
     left: v.optional(v.boolean()),
     leftAt: v.optional(v.number()), // when they left a live room (rooms.leave)
+    wantsToEnd: v.optional(v.boolean()), // voted to wrap up early (rooms.voteEnd)
     movedToRoomId: v.optional(v.id("rooms")), // set when this member's room rolled
     positionAfter: v.optional(v.number()), // "Minds moved": where they stand after the chat, 0-100
     endPositionAI: v.optional(v.number()), // AI estimate of where they ended up, from their messages
@@ -172,6 +173,7 @@ export default defineSchema({
       v.literal("flag"),
       v.literal("closing"),
       v.literal("left"), // "<name> left the room."
+      v.literal("vote"), // vote-to-end-early updates
       v.literal("shift"), // judge noticed someone's view moving during the chat
     ),
     flagged: v.optional(v.boolean()), // personal-attack check
