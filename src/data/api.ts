@@ -48,6 +48,7 @@ export const api = {
     mindsMoved: query<{ roomId: Id }, MindsMoved>("rooms:mindsMoved"),
     leave: mutation<{ roomId: Id; userId: Id }, null>("rooms:leave"),
     voteEnd: mutation<{ roomId: Id; userId: Id; wantsToEnd: boolean }, null>("rooms:voteEnd"),
+    setTyping: mutation<{ roomId: Id; userId: Id }, null>("rooms:setTyping"),
     watchBeat: mutation<{ roomId: Id; viewerKey: string }, null>("rooms:watchBeat"),
     stopWatching: mutation<{ roomId: Id; viewerKey: string }, null>("rooms:stopWatching"),
   },

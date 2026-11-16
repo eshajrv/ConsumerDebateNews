@@ -57,6 +57,7 @@ export type RoomMember = {
   summarizesUserId?: Id<"users">;
   leftAt?: number | null; // set if they left the table early
   movedToRoomId?: Id<"rooms">;
+  typingUntil?: number | null; // ms timestamp: show "is typing" until then (rooms.setTyping)
 };
 
 export type Room = {

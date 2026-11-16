@@ -88,6 +88,7 @@ export const useSetPositionAfter = () => useRoomsAction(api.rooms.setPositionAft
 export const useMindsMoved = (roomId: Id) => useRoomsData(api.rooms.mindsMoved, { roomId }, rooms.mindsMoved);
 export const useLeaveRoom = () => useRoomsAction(api.rooms.leave, rooms.leaveRoom);
 export const useVoteEnd = () => useRoomsAction(api.rooms.voteEnd, rooms.voteEnd);
+export const useSetTyping = () => useRoomsAction(api.rooms.setTyping, rooms.setTyping);
 
 // While a watch screen is open, tell the backend every 20s so the table shows "N at the bar"
 export function useWatchHeartbeat(roomId: Id, viewerKey: string | null) {
