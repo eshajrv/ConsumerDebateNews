@@ -68,6 +68,8 @@ export type Room = {
   allowSpectators?: boolean;
   mode?: RoomMode;
   movedToRoomId?: Id<"rooms">;
+  endVotes?: number; // members who voted to end the debate early
+  activeCount?: number; // members still in the room
   topic: Topic | null;
   members: RoomMember[];
 };
