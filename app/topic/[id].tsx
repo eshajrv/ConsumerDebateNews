@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "../../src/components/BackButton";
+import { Button } from "../../src/components/Button";
 import { SplitBar } from "../../src/components/SplitBar";
 import { StanceSlider } from "../../src/components/StanceSlider";
 import { type RoomMode, useFeed, useJoinRoom, useNextRoom, useSetStance, useTopicStats } from "../../src/data";
@@ -62,22 +63,36 @@ export default function TopicScreen() {
   const joinRoom = useJoinRoom();
 
   const [position, setPosition] = useState(50);
+  const [touched, setTouched] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [joining, setJoining] = useState<RoomMode | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const save = async (value: number) => {
-    if (!userId) return;
-    await setStance({ userId, topicId: id, position: value, today: todayString() });
-    setSaved(true);
+  const pick = (value: number) => {
+    setPosition(value);
+    setTouched(true);
   };
+
+  async function saveTake() {
+    if (!userId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await setStance({ userId, topicId: id, position, today: todayString() });
+      setSaved(true);
+    } catch {
+      setError("Couldn't save your take. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function join(mode: RoomMode) {
     if (!userId) return;
     setJoining(mode);
     setError(null);
     try {
-      if (!saved) await save(position);
       const roomId = await joinRoom({ userId, topicId: id, mode });
       router.push(`/room/${roomId}`);
     } catch {
@@ -119,21 +134,6 @@ export default function TopicScreen() {
         {topic.sources.length > 0 && <Text style={styles.sources}>Sources: {topic.sources.join(", ")}</Text>}
 
         <View style={styles.take}>
-          <Text style={type.title}>Where do you land?</Text>
-          <StanceSlider
-            value={position}
-            sideA={topic.sideA}
-            sideB={topic.sideB}
-            onChange={(v) => {
-              setPosition(v);
-              setSaved(false);
-            }}
-            onRelease={save}
-          />
-          <Text style={styles.saved}>{saved ? "Your take is saved." : " "}</Text>
-        </View>
-
-        <View style={styles.take}>
           <Text style={type.label}>How everyone leans</Text>
           <SplitBar stats={stats} sideA={topic.sideA} sideB={topic.sideB} />
         </View>
@@ -141,16 +141,32 @@ export default function TopicScreen() {
 
       <View style={styles.footer}>
         {error && <Text style={styles.error}>{error}</Text>}
-        {OPTIONS.map((option) => (
-          <JoinOption
-            key={option.mode}
-            topicId={id}
-            option={option}
-            loading={joining === option.mode}
-            disabled={joining !== null}
-            onPress={() => join(option.mode)}
-          />
-        ))}
+        {!saved ? (
+          <>
+            <Text style={type.title}>Where do you land?</Text>
+            <StanceSlider value={position} sideA={topic.sideA} sideB={topic.sideB} onChange={pick} onRelease={pick} />
+            <Button title={touched ? "Save my take" : "Move the slider to answer"} disabled={!touched} loading={saving} onPress={saveTake} />
+          </>
+        ) : (
+          <>
+            <View style={styles.savedRow}>
+              <Text style={styles.saved}>Your take is saved.</Text>
+              <Pressable onPress={() => setSaved(false)} disabled={joining !== null} hitSlop={12} accessibilityRole="button">
+                <Text style={styles.change}>Change</Text>
+              </Pressable>
+            </View>
+            {OPTIONS.map((option) => (
+              <JoinOption
+                key={option.mode}
+                topicId={id}
+                option={option}
+                loading={joining === option.mode}
+                disabled={joining !== null}
+                onPress={() => join(option.mode)}
+              />
+            ))}
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -165,7 +181,9 @@ const styles = StyleSheet.create({
   sideName: { fontSize: 17, fontWeight: "800" },
   sources: { fontSize: 13, color: colors.muted },
   take: { gap: spacing.md, marginTop: spacing.md },
+  savedRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   saved: { fontSize: 14, color: colors.muted },
+  change: { fontSize: 14, fontWeight: "600", color: colors.accent },
   footer: { padding: spacing.screen, paddingTop: spacing.sm, gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
   option: {
     backgroundColor: colors.accent,
