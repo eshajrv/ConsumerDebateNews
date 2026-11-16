@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "../../src/components/BackButton";
 import { MiniScale } from "../../src/components/MiniScale";
+import { TopicPhoto } from "../../src/components/TopicPhoto";
 import { type LiveRoom, useFeaturedRoom, useLiveRooms } from "../../src/data";
 import { formatCountdown, useNow } from "../../src/date";
 import { card, colors, fonts, spacing, type } from "../../src/theme";
@@ -16,6 +17,7 @@ function LiveRoomCard({ room, now, featured }: { room: LiveRoom; now: number; fe
       accessibilityRole="button"
       style={({ pressed }) => [card, styles.card, featured && styles.featuredCard, pressed && styles.pressed]}
     >
+      <TopicPhoto imageUrl={room.imageUrl} category={room.category ?? ""} bleed={{ top: card.padding }} />
       {featured && <Text style={styles.featuredLabel}>Featured</Text>}
       <View style={styles.row}>
         <View style={styles.liveDot} />
@@ -70,7 +72,7 @@ const styles = StyleSheet.create({
   loading: { marginTop: spacing.xl },
   list: { padding: spacing.screen, gap: spacing.md },
   empty: { fontSize: 16, fontFamily: fonts.regular, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
-  card: { gap: spacing.sm, paddingHorizontal: 0 },
+  card: { gap: spacing.sm, paddingHorizontal: 0, overflow: "hidden" },
   pressed: { opacity: 0.8 },
   featuredCard: { borderWidth: 2, borderColor: colors.accent },
   featuredLabel: { fontSize: 13, fontFamily: fonts.bold, color: colors.accent, letterSpacing: 0.5, textTransform: "uppercase", paddingHorizontal: spacing.lg },

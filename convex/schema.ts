@@ -163,6 +163,13 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_room_and_user", ["roomId", "userId"]),
 
+  // Spectators currently watching a live room (heartbeat from the watch screen)
+  roomWatchers: defineTable({
+    roomId: v.id("rooms"),
+    viewerKey: v.string(), // userId, or a random id per device
+    lastSeen: v.number(),
+  }).index("by_room", ["roomId"]),
+
   roomMessages: defineTable({
     roomId: v.id("rooms"),
     userId: v.optional(v.id("users")), // missing = the AI judge

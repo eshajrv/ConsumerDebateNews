@@ -232,3 +232,11 @@ export function featuredRoom(_args: { topicId?: Id; now?: number }): FeaturedRoo
   const room = liveRooms({})[0];
   return room ? { ...room, recentMessages: fakeMessages.filter((m) => m.roomId === room._id).length } : null;
 }
+
+export async function watchBeat(_args: { roomId: Id; viewerKey: string }): Promise<null> {
+  return null;
+}
+
+export async function stopWatching(_args: { roomId: Id; viewerKey: string }): Promise<null> {
+  return null;
+}

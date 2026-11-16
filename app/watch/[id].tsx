@@ -5,7 +5,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "../../src/components/BackButton";
 import { Button } from "../../src/components/Button";
-import { type RoomMessage, useRoom, useRoomMessages } from "../../src/data";
+import { type RoomMessage, useRoom, useRoomMessages, useWatchHeartbeat } from "../../src/data";
+import { useSavedUserId } from "../../src/session";
 import { formatCountdown, useNow } from "../../src/date";
 import { colors, fonts, positionColor, radius, spacing, type } from "../../src/theme";
 
@@ -76,6 +77,10 @@ function Ended({ text }: { text: string }) {
 export default function WatchRoom() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const room = useRoom(id);
+  // Counts you "at the bar" for the people at the table
+  const userId = useSavedUserId();
+  const [deviceKey] = useState(() => `viewer_${Math.random().toString(36).slice(2, 10)}`);
+  useWatchHeartbeat(id, userId ?? deviceKey);
   const messages = useRoomMessages(id);
   const now = useNow();
   const list = useRef<FlatList<RoomMessage>>(null);

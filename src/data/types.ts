@@ -37,6 +37,7 @@ export type Topic = {
   sources: string[];
   status: string;
   isShared?: boolean;
+  imageUrl?: string; // stock photo; missing = show a green block with the category
 };
 
 export type TopicStats = { total: number; leanA: number; leanB: number; talkingNow: number };
@@ -54,6 +55,7 @@ export type RoomMember = {
   band: Band;
   circleOrder?: number;
   summarizesUserId?: Id<"users">;
+  leftAt?: number | null; // set if they left the table early
   movedToRoomId?: Id<"rooms">;
 };
 
@@ -68,6 +70,7 @@ export type Room = {
   allowSpectators?: boolean;
   mode?: RoomMode;
   movedToRoomId?: Id<"rooms">;
+  watcherCount?: number; // people watching from "the bar"
   endVotes?: number; // members who voted to end the debate early
   activeCount?: number; // members still in the room
   topic: Topic | null;
@@ -112,6 +115,8 @@ export type LiveRoom = {
   _id: Id<"rooms">;
   topicId: Id<"topics">;
   question: string;
+  category?: string;
+  imageUrl?: string;
   endsAt?: number;
   members: { name: string; position: number; band: Band }[];
 };

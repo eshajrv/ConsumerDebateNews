@@ -16,6 +16,7 @@ import { FunctionReturnType } from "convex/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { askClaude, extractJson } from "./lib/claude";
 import { notify } from "./notify";
+import { topicImage } from "./lib/topicImages";
 
 const TZ = "America/Los_Angeles";
 const MINUTE = 60_000;
@@ -225,12 +226,52 @@ export const join = mutation({
   handler: async (ctx, args) => joinRoom(ctx, args),
 });
 
+// People watching a live room ("at the bar"). Each watcher's screen sends a heartbeat;
+// stale rows are cleared on each heartbeat.
+const WATCHER_TTL = 45_000;
+
+export const watchBeat = mutation({
+  args: { roomId: v.id("rooms"), viewerKey: v.string() },
+  handler: async (ctx, { roomId, viewerKey }) => {
+    const now = Date.now();
+    const rows = await ctx.db
+      .query("roomWatchers")
+      .withIndex("by_room", (q) => q.eq("roomId", roomId))
+      .take(200);
+    let mine = false;
+    for (const r of rows) {
+      if (r.viewerKey === viewerKey) {
+        await ctx.db.patch(r._id, { lastSeen: now });
+        mine = true;
+      } else if (now - r.lastSeen > WATCHER_TTL) {
+        await ctx.db.delete(r._id);
+      }
+    }
+    if (!mine) await ctx.db.insert("roomWatchers", { roomId, viewerKey: viewerKey.slice(0, 64), lastSeen: now });
+  },
+});
+
+export const stopWatching = mutation({
+  args: { roomId: v.id("rooms"), viewerKey: v.string() },
+  handler: async (ctx, { roomId, viewerKey }) => {
+    const rows = await ctx.db
+      .query("roomWatchers")
+      .withIndex("by_room", (q) => q.eq("roomId", roomId))
+      .take(200);
+    for (const r of rows) if (r.viewerKey === viewerKey) await ctx.db.delete(r._id);
+  },
+});
+
 export const get = query({
   args: { roomId: v.id("rooms") },
   handler: async (ctx, { roomId }) => {
     const room = await ctx.db.get(roomId);
     if (!room) return null;
-    const [topic, members] = await Promise.all([
+    const watchers = await ctx.db
+      .query("roomWatchers")
+      .withIndex("by_room", (q) => q.eq("roomId", roomId))
+      .take(200);
+    const [topicDoc, members] = await Promise.all([
       ctx.db.get(room.topicId),
       ctx.db
         .query("roomMembers")
@@ -238,9 +279,11 @@ export const get = query({
         .collect(),
     ]);
     const active = members.filter((m) => !m.left);
+    const topic = topicDoc ? { ...topicDoc, imageUrl: topicImage(topicDoc) } : null;
     return {
       ...room,
       topic,
+      watcherCount: watchers.length,
       endVotes: active.filter((m) => m.wantsToEnd).length,
       activeCount: active.length,
       members: await Promise.all(
@@ -325,6 +368,8 @@ async function watchableRooms(ctx: QueryCtx, topicId?: Id<"topics">) {
       _id: room._id,
       topicId: room.topicId,
       question: topic?.question ?? "",
+      category: topic?.category ?? "",
+      imageUrl: topic ? topicImage(topic) : undefined,
       endsAt: room.endsAt,
       members: await Promise.all(
         members.map(async (m) => ({
@@ -406,6 +451,7 @@ export const checkStart = internalMutation({
     if (members.length >= MIN_TO_START[mode] && spread >= MIN_SPREAD && hasMiddle) {
       const endsAt = Date.now() + ROOM_MS;
       await ctx.db.patch(roomId, { status: "live", endsAt });
+      await assignCircle(ctx, roomId); // shown in the chat as "Listen for <name>"
       await ctx.scheduler.runAfter(0, internal.rooms.writeOpener, { roomId });
       await ctx.scheduler.runAfter(NUDGE_MS, internal.rooms.nudge, { roomId });
       for (const at of SHIFT_CHECKS) {
@@ -599,10 +645,8 @@ export const end = internalMutation({
 });
 
 // Time's up (or too few people left): build the summary circle and have the judge close
-async function endRoom(ctx: MutationCtx, roomId: Id<"rooms">) {
-  const room = await ctx.db.get(roomId);
-  if (!room || room.status !== "live") return;
-  await ctx.db.patch(roomId, { status: "summarizing" });
+// Shuffles the active members into a circle; each person summarizes the next one.
+async function assignCircle(ctx: MutationCtx, roomId: Id<"rooms">) {
   const circle = await activeMembers(ctx, roomId);
   for (let i = circle.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -614,6 +658,18 @@ async function endRoom(ctx: MutationCtx, roomId: Id<"rooms">) {
       summarizesUserId: circle[(i + 1) % circle.length].userId,
     });
   }
+}
+
+async function endRoom(ctx: MutationCtx, roomId: Id<"rooms">) {
+  const room = await ctx.db.get(roomId);
+  if (!room || room.status !== "live") return;
+  await ctx.db.patch(roomId, { status: "summarizing" });
+  // The circle is assigned when the room starts so people know who to listen for.
+  // Re-assign only if it's missing or someone in it has left.
+  const active = await activeMembers(ctx, roomId);
+  const ids = new Set(active.map((m) => m.userId));
+  const intact = active.length >= 2 && active.every((m) => m.summarizesUserId && ids.has(m.summarizesUserId));
+  if (!intact) await assignCircle(ctx, roomId);
   await ctx.scheduler.runAfter(0, internal.rooms.writeClosing, { roomId });
   await ctx.scheduler.runAfter(0, internal.ai.rateRoomCivility, { roomId });
   await ctx.scheduler.runAfter(0, internal.rooms.estimateEndPositions, { roomId });

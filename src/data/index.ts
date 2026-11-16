@@ -89,6 +89,23 @@ export const useMindsMoved = (roomId: Id) => useRoomsData(api.rooms.mindsMoved, 
 export const useLeaveRoom = () => useRoomsAction(api.rooms.leave, rooms.leaveRoom);
 export const useVoteEnd = () => useRoomsAction(api.rooms.voteEnd, rooms.voteEnd);
 
+// While a watch screen is open, tell the backend every 20s so the table shows "N at the bar"
+export function useWatchHeartbeat(roomId: Id, viewerKey: string | null) {
+  const beat = useRoomsAction(api.rooms.watchBeat, rooms.watchBeat);
+  const stop = useRoomsAction(api.rooms.stopWatching, rooms.stopWatching);
+  useEffect(() => {
+    if (!viewerKey) return;
+    const send = () => beat({ roomId, viewerKey }).catch(() => {});
+    send();
+    const timer = setInterval(send, 20_000);
+    return () => {
+      clearInterval(timer);
+      stop({ roomId, viewerKey }).catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, viewerKey]);
+}
+
 export const useRoomSummaries = (roomId: Id, userId: Id | null) =>
   useSummariesData(api.summaries.forRoom, skipUnless(userId, { roomId, userId: userId! }), summaries.summariesForRoom);
 export const useSubmitSummary = () => useSummariesAction(api.summaries.submit, summaries.submitSummary);

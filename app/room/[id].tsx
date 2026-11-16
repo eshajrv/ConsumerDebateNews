@@ -4,7 +4,9 @@ import { ActivityIndicator, Animated, Easing, StyleSheet, Text, View } from "rea
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "../../src/components/BackButton";
-import { dropInDuration, MiniScale } from "../../src/components/MiniScale";
+import { dropInDuration } from "../../src/components/MiniScale";
+import { SeatTable } from "../../src/components/SeatTable";
+import { TopicPhoto } from "../../src/components/TopicPhoto";
 import { useRoom } from "../../src/data";
 import { useSavedUserId } from "../../src/session";
 import { card, colors, fonts, spacing, type } from "../../src/theme";
@@ -88,8 +90,20 @@ export default function RoomLobby() {
         )}
 
         <View style={[card, styles.membersCard]}>
-          <Text style={type.title}>{room.members.length} at this table</Text>
-          <MiniScale members={room.members} youId={userId} dropIn={live} />
+          {room.topic && (
+            <>
+              <TopicPhoto imageUrl={room.topic.imageUrl} category={room.topic.category} bleed={{ top: card.padding, horizontal: card.padding }} />
+              <Text style={type.title}>{room.topic.question}</Text>
+            </>
+          )}
+          <Text style={type.label}>{room.members.length} at this table</Text>
+          <SeatTable
+            members={room.members}
+            youId={userId}
+            seats={duo ? 2 : 6}
+            sideA={room.topic?.sideA}
+            sideB={room.topic?.sideB}
+          />
           <Text style={styles.muted}>{live ? "Everyone's here." : "Stay on this screen. We'll take you in when it opens."}</Text>
         </View>
       </Animated.View>
@@ -106,7 +120,7 @@ const styles = StyleSheet.create({
   countdown: { fontSize: 64, fontFamily: fonts.bold, color: colors.text, fontVariant: ["tabular-nums"] },
   startingWrap: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.lg },
   startingText: { fontSize: 28, fontFamily: fonts.bold, color: colors.accent, textAlign: "center" },
-  membersCard: { gap: spacing.md },
+  membersCard: { gap: spacing.md, overflow: "hidden" },
   muted: { fontSize: 15, fontFamily: fonts.regular, color: colors.muted, textAlign: "center" },
 });
 

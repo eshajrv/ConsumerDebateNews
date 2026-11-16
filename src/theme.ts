@@ -16,12 +16,14 @@ export const colors = {
   sideB: "#2A9D8F",
   sideBSoft: "#DDF1EE",
   middle: "#CDBE9F",
+  middleSoft: "#F1EADB", // light sand, for middle-band chat bubbles
+  middleText: "#7D6E4E",
   error: "#B4232C",
 };
 
 // Font family names registered with useFonts in app/_layout.tsx
 export const fonts = {
-  wordmark: "Limelight_400Regular", // only for the "speak-easy" wordmark
+  wordmark: "PlayfairDisplay_600SemiBold", // the "speak-easy" wordmark, same family as titles
   display: "PlayfairDisplay_600SemiBold", // questions and titles
   displayMedium: "PlayfairDisplay_500Medium",
   regular: "Inter_400Regular",
