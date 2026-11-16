@@ -87,6 +87,8 @@ export const useFeaturedRoom = () => {
 export const useSetPositionAfter = () => useRoomsAction(api.rooms.setPositionAfter, rooms.setPositionAfter);
 export const useMindsMoved = (roomId: Id) => useRoomsData(api.rooms.mindsMoved, { roomId }, rooms.mindsMoved);
 export const useLeaveRoom = () => useRoomsAction(api.rooms.leave, rooms.leaveRoom);
+export const usePingLobby = () => useRoomsAction(api.rooms.ping, rooms.pingLobby);
+export const useStartNow = () => useRoomsAction(api.rooms.startNow, rooms.startNow);
 export const useVoteEnd = () => useRoomsAction(api.rooms.voteEnd, rooms.voteEnd);
 export const useSetTyping = () => useRoomsAction(api.rooms.setTyping, rooms.setTyping);
 

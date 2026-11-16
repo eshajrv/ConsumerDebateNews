@@ -24,7 +24,8 @@ const DAY = 24 * 60 * MINUTE;
 const FIRST_SLOT = 7 * 60; // 7:00 AM Pacific, in minutes after midnight
 const LAST_SLOT = 22 * 60; // 10:00 PM Pacific
 const MAX_MEMBERS = { duo: 2, group: 6 };
-const MIN_TO_START = { duo: 2, group: 2 };
+const MIN_TO_START = { duo: 2, group: 3 };
+const STALE_MS = 15_000; // the lobby pings every 5s; a seat with no ping for this long is empty
 
 type Mode = "duo" | "group";
 export const modeValidator = v.union(v.literal("duo"), v.literal("group"));
@@ -90,6 +91,14 @@ async function activeMembers(ctx: QueryCtx, roomId: Id<"rooms">) {
   return members.filter((m) => !m.left);
 }
 
+// Clears lobby seats whose phone stopped pinging (closed the app, went back without leaving)
+async function pruneLobby(ctx: MutationCtx, roomId: Id<"rooms">) {
+  const now = Date.now();
+  for (const m of await activeMembers(ctx, roomId)) {
+    if ((m.seenAt ?? 0) < now - STALE_MS) await ctx.db.patch(m._id, { left: true, leftAt: now });
+  }
+}
+
 // Puts a user in the waiting room for `slotStart` with the fewest people from their band,
 // opening (and scheduling) a new room when every room is full.
 async function placeInRoom(
@@ -114,6 +123,7 @@ async function placeInRoom(
   let best: { room: Doc<"rooms">; needsMiddle: boolean; sameBand: number; total: number } | null = null;
   for (const room of rooms) {
     if (room.status !== "waiting" || modeOf(room) !== args.mode) continue;
+    await pruneLobby(ctx, room._id);
     const members = await activeMembers(ctx, room._id);
     if (members.length >= MAX_MEMBERS[args.mode]) continue;
     const sameBand = members.filter((m) => m.band === band).length;
@@ -150,6 +160,7 @@ async function placeInRoom(
     position: args.position,
     band,
     allowSpectators: args.allowSpectators,
+    seenAt: Date.now(),
   });
   // Open the table as soon as the right people are seated, instead of waiting for the slot
   await ctx.scheduler.runAfter(0, internal.rooms.checkStart, { roomId, early: true });
@@ -193,7 +204,8 @@ export async function joinRoom(
     .unique();
   if (!stance) throw new ConvexError("Set where you stand first");
 
-  // Already waiting (or chatting) in a room on this topic? Return it.
+  // Already chatting on this topic? Return that room. Still waiting? Give up that seat and
+  // sit down again, so a new mode or a changed stance takes effect.
   const memberships = await ctx.db
     .query("roomMembers")
     .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -201,9 +213,9 @@ export async function joinRoom(
   for (const m of memberships) {
     if (m.left) continue;
     const room = await ctx.db.get(m.roomId);
-    if (room && room.topicId === topicId && (room.status === "waiting" || room.status === "live")) {
-      return room._id;
-    }
+    if (!room || room.topicId !== topicId) continue;
+    if (room.status === "live") return room._id;
+    if (room.status === "waiting") await ctx.db.patch(m._id, { left: true, leftAt: Date.now() });
   }
 
   return placeInRoom(ctx, {
@@ -435,11 +447,40 @@ export const remind = internalMutation({
   },
 });
 
+async function startRoom(ctx: MutationCtx, roomId: Id<"rooms">) {
+  const endsAt = Date.now() + ROOM_MS;
+  await ctx.db.patch(roomId, { status: "live", endsAt });
+  await assignCircle(ctx, roomId); // shown in the chat as "Listen for <name>"
+  await ctx.scheduler.runAfter(0, internal.rooms.writeOpener, { roomId });
+  await ctx.scheduler.runAfter(NUDGE_MS, internal.rooms.nudge, { roomId });
+  for (const at of SHIFT_CHECKS) {
+    await ctx.scheduler.runAfter(Math.round(ROOM_MS * at), internal.rooms.trackShifts, { roomId });
+  }
+  await ctx.scheduler.runAt(endsAt, internal.rooms.end, { roomId });
+}
+
+// "Start now" in a group lobby: anyone seated can open the table once MIN_TO_START people are there
+export const startNow = mutation({
+  args: { roomId: v.id("rooms"), userId: v.id("users") },
+  handler: async (ctx, { roomId, userId }) => {
+    const room = await ctx.db.get(roomId);
+    if (!room || room.status !== "waiting") return;
+    await pruneLobby(ctx, roomId);
+    const members = await activeMembers(ctx, roomId);
+    if (!members.some((m) => m.userId === userId)) throw new ConvexError("You're not at this table.");
+    if (members.length < MIN_TO_START[modeOf(room)]) {
+      throw new ConvexError(`A table needs at least ${MIN_TO_START[modeOf(room)]} people to start.`);
+    }
+    await startRoom(ctx, roomId);
+  },
+});
+
 export const checkStart = internalMutation({
   args: { roomId: v.id("rooms"), early: v.optional(v.boolean()) },
   handler: async (ctx, { roomId, early }) => {
     const room = await ctx.db.get(roomId);
     if (!room || room.status !== "waiting") return;
+    await pruneLobby(ctx, roomId);
     const members = await activeMembers(ctx, roomId);
     const positions = members.map((m) => m.position);
     const spread = positions.length ? Math.max(...positions) - Math.min(...positions) : 0;
@@ -448,16 +489,10 @@ export const checkStart = internalMutation({
     // splitting into two camps. Duos are 1-on-1 and only need the spread.
     const hasMiddle = mode === "duo" || members.some((m) => m.band === "M");
 
-    if (members.length >= MIN_TO_START[mode] && spread >= MIN_SPREAD && hasMiddle) {
-      const endsAt = Date.now() + ROOM_MS;
-      await ctx.db.patch(roomId, { status: "live", endsAt });
-      await assignCircle(ctx, roomId); // shown in the chat as "Listen for <name>"
-      await ctx.scheduler.runAfter(0, internal.rooms.writeOpener, { roomId });
-      await ctx.scheduler.runAfter(NUDGE_MS, internal.rooms.nudge, { roomId });
-      for (const at of SHIFT_CHECKS) {
-        await ctx.scheduler.runAfter(Math.round(ROOM_MS * at), internal.rooms.trackShifts, { roomId });
-      }
-      await ctx.scheduler.runAt(endsAt, internal.rooms.end, { roomId });
+    // Group lobbies wait for someone to tap "Start now" (rooms.startNow) unless the table fills up
+    const waitForStartNow = early && mode === "group" && members.length < MAX_MEMBERS.group;
+    if (!waitForStartNow && members.length >= MIN_TO_START[mode] && spread >= MIN_SPREAD && hasMiddle) {
+      await startRoom(ctx, roomId);
       return;
     }
     // A seat-time check that isn't ready yet keeps waiting; only the slot-time check rolls the table
@@ -676,15 +711,37 @@ async function endRoom(ctx: MutationCtx, roomId: Id<"rooms">) {
 }
 
 // Leave a live room early. Costs 10 points and 5 good-faith; ends the room if fewer than 2 remain.
-export const leave = mutation({
+// The lobby screen calls this every 15s so its seat stays taken; also clears seats that went quiet
+export const ping = mutation({
   args: { roomId: v.id("rooms"), userId: v.id("users") },
   handler: async (ctx, { roomId, userId }) => {
     const room = await ctx.db.get(roomId);
-    if (!room || room.status !== "live") throw new ConvexError("You can only leave a room while the chat is live.");
+    if (!room || room.status !== "waiting") return;
     const member = await ctx.db
       .query("roomMembers")
       .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", userId))
       .unique();
+    if (!member) return;
+    await ctx.db.patch(member._id, { seenAt: Date.now(), left: false });
+    await pruneLobby(ctx, roomId);
+    if (member.left) await ctx.scheduler.runAfter(0, internal.rooms.checkStart, { roomId, early: true });
+  },
+});
+
+export const leave = mutation({
+  args: { roomId: v.id("rooms"), userId: v.id("users") },
+  handler: async (ctx, { roomId, userId }) => {
+    const room = await ctx.db.get(roomId);
+    const member = await ctx.db
+      .query("roomMembers")
+      .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", userId))
+      .unique();
+    // Leaving the lobby before the chat starts is free
+    if (room?.status === "waiting") {
+      if (member && !member.left) await ctx.db.patch(member._id, { left: true, leftAt: Date.now() });
+      return;
+    }
+    if (!room || room.status !== "live") throw new ConvexError("You can only leave a room while the chat is live.");
     if (!member || member.left) throw new ConvexError("You're not in this room.");
 
     await ctx.db.patch(member._id, { left: true, leftAt: Date.now() });

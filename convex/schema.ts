@@ -158,6 +158,7 @@ export default defineSchema({
     livePosition: v.optional(v.number()), // AI estimate during the chat (latest check)
     liveReason: v.optional(v.string()),
     shiftNoted: v.optional(v.boolean()), // the judge already pointed out this person's shift
+    seenAt: v.optional(v.number()), // last lobby ping (rooms.ping); stale seats are cleared
   })
     .index("by_room", ["roomId"])
     .index("by_user", ["userId"])

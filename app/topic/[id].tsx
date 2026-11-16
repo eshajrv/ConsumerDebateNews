@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton } from "../../src/components/BackButton";
@@ -131,7 +131,27 @@ export default function TopicScreen() {
           <Text style={type.body}>{topic.sideBView}</Text>
         </View>
 
-        {topic.sources.length > 0 && <Text style={styles.sources}>Sources: {topic.sources.join(", ")}</Text>}
+        {topic.sources.length > 0 && (
+          <Text style={styles.sources}>
+            Sources:{" "}
+            {topic.sources.map((source, i) => {
+              const url = /^https?:\/\//.test(source) ? source : null;
+              const label = url ? new URL(url).hostname.replace(/^www\./, "") : source;
+              return (
+                <Text key={source}>
+                  {i > 0 && " · "}
+                  {url ? (
+                    <Text style={styles.sourceLink} onPress={() => Linking.openURL(url)} accessibilityRole="link">
+                      {label}
+                    </Text>
+                  ) : (
+                    label
+                  )}
+                </Text>
+              );
+            })}
+          </Text>
+        )}
 
         <View style={styles.take}>
           <Text style={type.label}>How everyone leans</Text>
@@ -180,6 +200,7 @@ const styles = StyleSheet.create({
   side: { borderRadius: radius.card, padding: spacing.lg, gap: spacing.sm },
   sideName: { fontSize: 17, fontFamily: fonts.bold },
   sources: { fontSize: 13, fontFamily: fonts.regular, color: colors.muted },
+  sourceLink: { fontFamily: fonts.semibold, color: colors.accent, textDecorationLine: "underline" },
   take: { gap: spacing.md, marginTop: spacing.md },
   savedRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   saved: { fontSize: 14, fontFamily: fonts.regular, color: colors.muted },

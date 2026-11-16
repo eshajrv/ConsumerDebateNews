@@ -224,6 +224,20 @@ export async function leaveRoom(_args: { roomId: Id; userId: Id }): Promise<null
   return null;
 }
 
+export async function pingLobby(_args: { roomId: Id; userId: Id }): Promise<null> {
+  return null;
+}
+
+export async function startNow({ roomId }: { roomId: Id; userId: Id }): Promise<null> {
+  const room = fakeRooms.find((r) => r._id === roomId);
+  if (room && room.status === "waiting") {
+    room.status = "live";
+    room.endsAt = Date.now() + CHAT_MS;
+  }
+  changed();
+  return null;
+}
+
 export async function voteEnd(_args: { roomId: Id; userId: Id; wantsToEnd: boolean }): Promise<null> {
   return null;
 }

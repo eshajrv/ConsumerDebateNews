@@ -1,20 +1,31 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { BackButton } from "../../src/components/BackButton";
+import { Button } from "../../src/components/Button";
 import { dropInDuration } from "../../src/components/MiniScale";
 import { SeatTable } from "../../src/components/SeatTable";
 import { TopicPhoto } from "../../src/components/TopicPhoto";
-import { useRoom } from "../../src/data";
+import { useLeaveRoom, usePingLobby, useRoom, useStartNow } from "../../src/data";
+import { errorMessage } from "../../src/errors";
 import { useSavedUserId } from "../../src/session";
 import { card, colors, fonts, spacing, type } from "../../src/theme";
+
+// Same rules as convex/rooms.ts
+const MIN_SEATS = { duo: 2, group: 3 };
+const MAX_SEATS = { duo: 2, group: 6 };
+const PING_MS = 5_000;
 
 export default function RoomLobby() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = useSavedUserId();
   const room = useRoom(id);
+  const ping = usePingLobby();
+  const leave = useLeaveRoom();
+  const startNow = useStartNow();
+  const [startingNow, setStartingNow] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const [starting] = useState(() => new Animated.Value(0));
   const [zoom] = useState(() => new Animated.Value(0));
 
@@ -44,6 +55,41 @@ export default function RoomLobby() {
     return () => moment.stop();
   }, [status, id, starting, zoom, memberCount, movedTo]);
 
+  // Keep this seat taken while the lobby is open; seats that stop pinging get cleared
+  useEffect(() => {
+    if (status !== "waiting" || !userId) return;
+    const keepSeat = () => ping({ roomId: id, userId }).catch(() => {});
+    keepSeat();
+    const timer = setInterval(keepSeat, PING_MS);
+    // On the web, closing the tab gives up the seat right away
+    const giveUpSeat = () => {
+      leave({ roomId: id, userId }).catch(() => {});
+    };
+    if (Platform.OS === "web") window.addEventListener("pagehide", giveUpSeat);
+    return () => {
+      clearInterval(timer);
+      if (Platform.OS === "web") window.removeEventListener("pagehide", giveUpSeat);
+    };
+  }, [status, userId, id, ping, leave]);
+
+  async function goBack() {
+    if (status === "waiting" && userId) await leave({ roomId: id, userId }).catch(() => {});
+    if (router.canGoBack()) router.back();
+    else router.replace("/home");
+  }
+
+  async function start() {
+    if (!userId) return;
+    setStartingNow(true);
+    setStartError(null);
+    try {
+      await startNow({ roomId: id, userId });
+    } catch (e) {
+      setStartError(errorMessage(e, "Couldn't start the table. Try again."));
+      setStartingNow(false);
+    }
+  }
+
   if (!room) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
@@ -54,11 +100,17 @@ export default function RoomLobby() {
 
   const live = room.status === "live";
   const duo = room.mode === "duo";
+  const mode = duo ? "duo" : "group";
+  const seated = room.members.length;
+  const needed = MIN_SEATS[mode] - seated;
+  const canStart = !duo && needed <= 0;
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.top}>
-        <BackButton />
+        <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
+          <Text style={styles.back}>{room.status === "waiting" ? "Leave lobby" : "Back"}</Text>
+        </Pressable>
       </View>
       <Animated.View
         style={[
@@ -78,14 +130,26 @@ export default function RoomLobby() {
           <View style={styles.countdownWrap}>
             <Text style={type.title}>Waiting for people to sit down</Text>
             <Text style={styles.countdown}>
-              {room.members.length}/{duo ? 2 : 6}
+              {seated}/{MAX_SEATS[mode]}
             </Text>
-            <ActivityIndicator color={colors.accent} />
-            <Text style={styles.muted}>
-              {duo
-                ? "Your table opens as soon as someone who sees it differently sits down."
-                : "Your table opens once people with different views are here."}
-            </Text>
+            {canStart ? (
+              <>
+                <Text style={styles.muted}>Enough people are here. Start now, or wait for more (up to {MAX_SEATS.group}).</Text>
+                <View style={styles.startButton}>
+                  <Button title="Start now" onPress={start} loading={startingNow} />
+                </View>
+                {startError && <Text style={styles.error}>{startError}</Text>}
+              </>
+            ) : (
+              <>
+                <ActivityIndicator color={colors.accent} />
+                <Text style={styles.muted}>
+                  {duo
+                    ? "Your table opens as soon as someone who sees it differently sits down."
+                    : `Waiting for ${needed} more ${needed === 1 ? "person" : "people"}. You can start at ${MIN_SEATS.group}.`}
+                </Text>
+              </>
+            )}
           </View>
         )}
 
@@ -100,7 +164,7 @@ export default function RoomLobby() {
           <SeatTable
             members={room.members}
             youId={userId}
-            seats={duo ? 2 : 6}
+            seats={MAX_SEATS[mode]}
             sideA={room.topic?.sideA}
             sideB={room.topic?.sideB}
           />
@@ -121,6 +185,9 @@ const styles = StyleSheet.create({
   startingWrap: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.lg },
   startingText: { fontSize: 28, fontFamily: fonts.bold, color: colors.accent, textAlign: "center" },
   membersCard: { gap: spacing.md, overflow: "hidden" },
+  back: { fontSize: 16, fontFamily: fonts.semibold, color: colors.accent },
+  startButton: { alignSelf: "stretch" },
+  error: { fontSize: 14, fontFamily: fonts.regular, color: colors.error, textAlign: "center" },
   muted: { fontSize: 15, fontFamily: fonts.regular, color: colors.muted, textAlign: "center" },
 });
 
