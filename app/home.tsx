@@ -1,4 +1,5 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { type Href, router, useLocalSearchParams } from "expo-router";
+import { useEffect } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -12,6 +13,7 @@ import { Toast } from "../src/components/Toast";
 import { Trophy } from "../src/components/Trophy";
 import { type Topic, useFeed, useNextRoom, useNotifications, useTopicStats, useUser } from "../src/data";
 import { pacificDate } from "../src/date";
+import { useResumeRoom } from "../src/resume";
 import { clearUserId, useSavedUserId } from "../src/session";
 import { card, colors, fonts, spacing, type } from "../src/theme";
 
@@ -58,12 +60,18 @@ function TopicCard({ topic }: { topic: Topic }) {
 export default function Home() {
   const { left } = useLocalSearchParams<{ left?: string }>();
   const userId = useSavedUserId();
+  const resumeTarget = useResumeRoom(userId).target;
   const user = useUser(userId);
   const topics = useFeed(userId, pacificDate());
   const notifications = useNotifications(userId);
   const unread = notifications?.unreadCount ?? 0;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  // Still seated at a table (or mid-chat)? Go back there instead of the feed.
+  useEffect(() => {
+    if (resumeTarget) router.replace(resumeTarget as Href);
+  }, [resumeTarget]);
 
   async function startOver() {
     await clearUserId();

@@ -77,6 +77,7 @@ export const useRoom = (roomId: Id) => {
   }, [room]);
   return room;
 };
+export const useRoomIfAny = (roomId: Id | null) => useRoomsData(api.rooms.get, skipUnless(roomId, { roomId: roomId! }), rooms.getRoom);
 export const useRoomMessages = (roomId: Id) => useRoomsData(api.rooms.messages, { roomId }, rooms.roomMessages);
 export const useSendMessage = () => useRoomsAction(api.rooms.send, rooms.sendMessage);
 export const useLiveRooms = (topicId?: Id) => useRoomsData(api.rooms.live, topicId ? { topicId } : {}, rooms.liveRooms);
