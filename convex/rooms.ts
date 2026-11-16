@@ -31,6 +31,7 @@ const modeOf = (room: Doc<"rooms">): Mode => room.mode ?? "group";
 const MIN_SPREAD = 40;
 const ROOM_MS = 10 * MINUTE;
 const NUDGE_MS = 4 * MINUTE;
+const TYPING_MS = 4_000;
 
 const slotMinutes = () => {
   const n = Number(process.env.SLOT_MINUTES);
@@ -252,6 +253,7 @@ export const get = query({
           movedToRoomId: m.movedToRoomId,
           leftAt: m.leftAt ?? null,
           wantsToEnd: m.wantsToEnd ?? false,
+          typingUntil: m.typingUntil ?? null,
         })),
       ),
     };
@@ -280,7 +282,23 @@ export const send = mutation({
     const clean = text.trim().slice(0, 500);
     if (!clean) return;
     const messageId = await ctx.db.insert("roomMessages", { roomId, userId, text: clean, kind: "user" });
+    if (member.typingUntil !== undefined) await ctx.db.patch(member._id, { typingUntil: undefined });
     await ctx.scheduler.runAfter(0, internal.rooms.checkAttack, { messageId });
+  },
+});
+
+// Called while a member types; the app shows them as typing until typingUntil passes on the phone's clock.
+export const setTyping = mutation({
+  args: { roomId: v.id("rooms"), userId: v.id("users") },
+  handler: async (ctx, { roomId, userId }) => {
+    const room = await ctx.db.get(roomId);
+    if (!room || room.status !== "live") throw new ConvexError("This room isn't live right now.");
+    const member = await ctx.db
+      .query("roomMembers")
+      .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", userId))
+      .unique();
+    if (!member || member.left) throw new ConvexError("You're not in this room.");
+    await ctx.db.patch(member._id, { typingUntil: Date.now() + TYPING_MS });
   },
 });
 

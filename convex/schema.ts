@@ -150,6 +150,7 @@ export default defineSchema({
     left: v.optional(v.boolean()),
     leftAt: v.optional(v.number()), // when they left a live room (rooms.leave)
     wantsToEnd: v.optional(v.boolean()), // voted to wrap up early (rooms.voteEnd)
+    typingUntil: v.optional(v.number()), // ms timestamp: shown as typing until then (rooms.setTyping)
     movedToRoomId: v.optional(v.id("rooms")), // set when this member's room rolled
     positionAfter: v.optional(v.number()), // "Minds moved": where they stand after the chat, 0-100
     endPositionAI: v.optional(v.number()), // AI estimate of where they ended up, from their messages
