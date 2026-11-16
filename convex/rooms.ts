@@ -95,7 +95,7 @@ async function activeMembers(ctx: QueryCtx, roomId: Id<"rooms">) {
 async function pruneLobby(ctx: MutationCtx, roomId: Id<"rooms">) {
   const now = Date.now();
   for (const m of await activeMembers(ctx, roomId)) {
-    if ((m.seenAt ?? 0) < now - STALE_MS) await ctx.db.patch(m._id, { left: true, leftAt: now });
+    if ((m.seenAt ?? 0) < now - STALE_MS) await ctx.db.patch(m._id, { left: true, leftAt: now, timedOut: true });
   }
 }
 
@@ -728,7 +728,9 @@ export const ping = mutation({
       .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", userId))
       .unique();
     if (!member) return;
-    await ctx.db.patch(member._id, { seenAt: Date.now(), left: false });
+    // Someone who pressed Leave stays gone; only seats that timed out get taken back
+    if (member.left && member.leftAt && !member.timedOut) return;
+    await ctx.db.patch(member._id, { seenAt: Date.now(), left: false, leftAt: undefined, timedOut: undefined });
     await pruneLobby(ctx, roomId);
     if (member.left) await ctx.scheduler.runAfter(0, internal.rooms.checkStart, { roomId, early: true });
   },
@@ -744,7 +746,9 @@ export const leave = mutation({
       .unique();
     // Leaving the lobby before the chat starts is free
     if (room?.status === "waiting") {
-      if (member && !member.left) await ctx.db.patch(member._id, { left: true, leftAt: Date.now() });
+      if (member && (!member.left || member.timedOut)) {
+        await ctx.db.patch(member._id, { left: true, leftAt: Date.now(), timedOut: undefined });
+      }
       return;
     }
     if (!room || room.status !== "live") throw new ConvexError("You can only leave a room while the chat is live.");

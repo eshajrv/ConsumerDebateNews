@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Animated, Easing, Platform, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../src/components/Button";
+import { LeaveButton, LeaveConfirmModal } from "../../src/components/LeaveConfirm";
 import { dropInDuration } from "../../src/components/MiniScale";
 import { SeatTable } from "../../src/components/SeatTable";
 import { TopicPhoto } from "../../src/components/TopicPhoto";
@@ -26,6 +27,10 @@ export default function RoomLobby() {
   const startNow = useStartNow();
   const [startingNow, setStartingNow] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+  const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [starting] = useState(() => new Animated.Value(0));
   const [zoom] = useState(() => new Animated.Value(0));
 
@@ -57,10 +62,11 @@ export default function RoomLobby() {
 
   // Keep this seat taken while the lobby is open; seats that stop pinging get cleared
   useEffect(() => {
-    if (status !== "waiting" || !userId) return;
+    if (status !== "waiting" || !userId || leaving) return;
     const keepSeat = () => ping({ roomId: id, userId }).catch(() => {});
     keepSeat();
     const timer = setInterval(keepSeat, PING_MS);
+    pingTimer.current = timer;
     // On the web, closing the tab gives up the seat right away
     const giveUpSeat = () => {
       leave({ roomId: id, userId }).catch(() => {});
@@ -68,9 +74,10 @@ export default function RoomLobby() {
     if (Platform.OS === "web") window.addEventListener("pagehide", giveUpSeat);
     return () => {
       clearInterval(timer);
+      pingTimer.current = null;
       if (Platform.OS === "web") window.removeEventListener("pagehide", giveUpSeat);
     };
-  }, [status, userId, id, ping, leave]);
+  }, [status, userId, id, ping, leave, leaving]);
 
   // Remember this table while you're seated, so reopening the app comes back here
   const amSeated = !!room?.members.some((m) => m.userId === userId);
@@ -80,11 +87,32 @@ export default function RoomLobby() {
     else clearSavedRoomId();
   }, [status, amSeated, userId, id]);
 
-  async function goBack() {
-    clearSavedRoomId();
-    if (status === "waiting" && userId) await leave({ roomId: id, userId }).catch(() => {});
-    if (router.canGoBack()) router.back();
-    else router.replace("/home");
+  async function leaveLobby() {
+    if (!userId || leaving) return;
+    // The table may have opened while the modal was up; leaving then costs points, so let the
+    // lobby carry on into the chat instead
+    if (status !== "waiting") {
+      setConfirmLeave(false);
+      return;
+    }
+    setLeaving(true);
+    setLeaveError(null);
+    if (pingTimer.current) clearInterval(pingTimer.current);
+    pingTimer.current = null;
+    try {
+      await leave({ roomId: id, userId });
+      await clearSavedRoomId();
+      router.replace("/home");
+    } catch (e) {
+      setLeaving(false);
+      setLeaveError(errorMessage(e, "Couldn't leave the lobby. Try again."));
+    }
+  }
+
+  function closeLeave() {
+    if (leaving) return;
+    setConfirmLeave(false);
+    setLeaveError(null);
   }
 
   async function start() {
@@ -117,9 +145,11 @@ export default function RoomLobby() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.top}>
-        <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-          <Text style={styles.back}>{room.status === "waiting" ? "Leave lobby" : "Back"}</Text>
-        </Pressable>
+        {room.status === "waiting" ? (
+          <LeaveButton label="‹ Leave lobby" accessibilityLabel="Leave the lobby" onPress={() => setConfirmLeave(true)} />
+        ) : (
+          <LeaveButton label="‹ Back" accessibilityLabel="Back to home" onPress={() => router.replace("/home")} />
+        )}
       </View>
       <Animated.View
         style={[
@@ -180,6 +210,18 @@ export default function RoomLobby() {
           <Text style={styles.muted}>{live ? "Everyone's here." : "Stay on this screen. We'll take you in when it opens."}</Text>
         </View>
       </Animated.View>
+
+      <LeaveConfirmModal
+        visible={confirmLeave}
+        title="Leave the lobby?"
+        body="You haven't started yet, so you won't lose any points."
+        stayLabel="Stay"
+        leaveLabel="Leave lobby"
+        leaving={leaving}
+        error={leaveError}
+        onStay={closeLeave}
+        onLeave={leaveLobby}
+      />
     </SafeAreaView>
   );
 }
@@ -187,14 +229,13 @@ export default function RoomLobby() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   center: { alignItems: "center", justifyContent: "center" },
-  top: { paddingHorizontal: spacing.screen, paddingTop: spacing.sm },
+  top: { paddingHorizontal: spacing.screen, paddingTop: spacing.sm, zIndex: 10, elevation: 10 },
   body: { flex: 1, padding: spacing.screen, gap: spacing.xl, justifyContent: "center" },
   countdownWrap: { alignItems: "center", gap: spacing.sm },
   countdown: { fontSize: 64, fontFamily: fonts.bold, color: colors.text, fontVariant: ["tabular-nums"] },
   startingWrap: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.lg },
   startingText: { fontSize: 28, fontFamily: fonts.bold, color: colors.accent, textAlign: "center" },
   membersCard: { gap: spacing.md, overflow: "hidden" },
-  back: { fontSize: 16, fontFamily: fonts.semibold, color: colors.accent },
   startButton: { alignSelf: "stretch" },
   error: { fontSize: 14, fontFamily: fonts.regular, color: colors.error, textAlign: "center" },
   muted: { fontSize: 15, fontFamily: fonts.regular, color: colors.muted, textAlign: "center" },
