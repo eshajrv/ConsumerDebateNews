@@ -1,16 +1,16 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Button } from "../../../src/components/Button";
+import { LeaveButton, LeaveConfirmModal } from "../../../src/components/LeaveConfirm";
 import { SeatTable } from "../../../src/components/SeatTable";
 import { TypingBubble } from "../../../src/components/TypingBubble";
 import { type RoomMessage, useLeaveRoom, useRoom, useRoomMessages, useSendMessage, useSetTyping, useVoteEnd } from "../../../src/data";
 import { formatCountdown, useNow } from "../../../src/date";
 import { errorMessage } from "../../../src/errors";
 import { clearSavedRoomId, useSavedUserId } from "../../../src/session";
-import { card, colors, fonts, radius, spacing, type } from "../../../src/theme";
+import { colors, fonts, radius, spacing, type } from "../../../src/theme";
 
 const MAX = 500;
 const TYPING_THROTTLE_MS = 2000;
@@ -126,15 +126,7 @@ export default function GroupChat() {
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={styles.header}>
-          <Pressable
-            onPress={() => setConfirmLeave(true)}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Leave the table"
-            style={({ pressed }) => pressed && { opacity: 0.7 }}
-          >
-            <Text style={styles.back}>‹ Back</Text>
-          </Pressable>
+          <LeaveButton label="‹ Back" accessibilityLabel="Leave the table" onPress={() => setConfirmLeave(true)} />
           <Text style={styles.atBar}>{`${room.watcherCount ?? 0} at the bar`}</Text>
           <View style={[styles.timerPill, lastTwo && styles.timerPillUrgent]}>
             <Text style={[styles.timer, lastTwo && styles.timerUrgent]}>{formatCountdown(remaining)}</Text>
@@ -249,29 +241,17 @@ export default function GroupChat() {
         </View>
       </KeyboardAvoidingView>
 
-      <Modal visible={confirmLeave} transparent animationType="fade" onRequestClose={closeLeave}>
-        <View style={styles.backdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={closeLeave} />
-          <View style={styles.modal}>
-            <Text style={type.title}>Leave this room?</Text>
-            <Text style={styles.modalBody}>
-              {"If you leave now you'll lose 10 points and 5 good-faith points, and you won't get a summary or results for this room."}
-            </Text>
-            {leaveError && <Text style={styles.modalError}>{leaveError}</Text>}
-            <View style={styles.modalActions}>
-              <Button title="Stay and talk" onPress={closeLeave} disabled={leaving} />
-              <Pressable
-                onPress={leaveRoom}
-                disabled={leaving}
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.secondary, pressed && { opacity: 0.7 }]}
-              >
-                {leaving ? <ActivityIndicator color={colors.muted} /> : <Text style={styles.secondaryText}>Leave room</Text>}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <LeaveConfirmModal
+        visible={confirmLeave}
+        title="Leave this room?"
+        body="If you leave now you'll lose 10 points and 5 good-faith points, and you won't get a summary or results for this room."
+        stayLabel="Stay and talk"
+        leaveLabel="Leave room"
+        leaving={leaving}
+        error={leaveError}
+        onStay={closeLeave}
+        onLeave={leaveRoom}
+      />
     </SafeAreaView>
   );
 }
@@ -281,7 +261,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { alignItems: "center", justifyContent: "center" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.screen, paddingVertical: spacing.sm },
-  back: { fontSize: 16, fontFamily: fonts.semibold, color: colors.accent },
   atBar: { fontSize: 13, fontFamily: fonts.medium, color: colors.muted },
   timerPill: { backgroundColor: colors.accentSoft, borderRadius: radius.pill, paddingVertical: spacing.xs, paddingHorizontal: spacing.md - 4 },
   timerPillUrgent: { backgroundColor: colors.accent },
@@ -325,13 +304,6 @@ const styles = StyleSheet.create({
   send: { backgroundColor: colors.accent, borderRadius: radius.card, paddingHorizontal: spacing.md + 2, height: 46, justifyContent: "center" },
   sendOff: { opacity: 0.4 },
   sendText: { color: colors.onAccent, fontSize: 16, fontFamily: fonts.bold },
-  backdrop: { flex: 1, justifyContent: "center", padding: spacing.lg, backgroundColor: "rgba(29,42,36,0.45)" },
-  modal: { ...card, gap: spacing.md },
-  modalBody: { ...type.body, color: colors.muted },
-  modalError: { fontSize: 14, fontFamily: fonts.medium, color: colors.error },
-  modalActions: { gap: spacing.sm, marginTop: spacing.sm },
-  secondary: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, minHeight: 56, alignItems: "center", justifyContent: "center" },
-  secondaryText: { fontSize: 17, fontFamily: fonts.semibold, color: colors.muted },
 });
 
 export { RoomErrorBoundary as ErrorBoundary } from "../../../src/components/RoomErrorBoundary";

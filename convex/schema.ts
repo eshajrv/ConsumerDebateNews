@@ -149,6 +149,7 @@ export default defineSchema({
     civility: v.optional(v.number()), // 1-5, AI-rated at the end
     left: v.optional(v.boolean()),
     leftAt: v.optional(v.number()), // when they left a live room (rooms.leave)
+    timedOut: v.optional(v.boolean()), // lobby seat cleared because its pings stopped (pruneLobby), not left on purpose
     wantsToEnd: v.optional(v.boolean()), // voted to wrap up early (rooms.voteEnd)
     typingUntil: v.optional(v.number()), // typing indicator: ms timestamp it expires (rooms.setTyping)
     movedToRoomId: v.optional(v.id("rooms")), // set when this member's room rolled
