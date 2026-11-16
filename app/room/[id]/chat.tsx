@@ -5,13 +5,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../../src/components/Button";
 import { SeatTable } from "../../../src/components/SeatTable";
-import { type RoomMessage, useLeaveRoom, useRoom, useRoomMessages, useSendMessage, useVoteEnd } from "../../../src/data";
+import { TypingBubble } from "../../../src/components/TypingBubble";
+import { type RoomMessage, useLeaveRoom, useRoom, useRoomMessages, useSendMessage, useSetTyping, useVoteEnd } from "../../../src/data";
 import { formatCountdown, useNow } from "../../../src/date";
 import { errorMessage } from "../../../src/errors";
 import { useSavedUserId } from "../../../src/session";
 import { card, colors, fonts, radius, spacing, type } from "../../../src/theme";
 
 const MAX = 500;
+const TYPING_THROTTLE_MS = 2000;
+const TYPING_MS = 4000; // how long rooms.setTyping keeps typingUntil ahead of the call
 
 // Bubble tint and name color by where the sender stands
 const BAND_TINT = {
@@ -28,8 +31,10 @@ export default function GroupChat() {
   const send = useSendMessage();
   const leave = useLeaveRoom();
   const voteEnd = useVoteEnd();
+  const setTyping = useSetTyping();
   const now = useNow();
   const list = useRef<FlatList<RoomMessage>>(null);
+  const lastTypingAt = useRef(0);
   const [text, setText] = useState("");
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -60,6 +65,20 @@ export default function GroupChat() {
   const listenFor = me?.summarizesUserId ? memberById.get(me.summarizesUserId) : undefined;
   const lastTwo = remaining > 0 && remaining <= 120_000;
   const activeCount = room.activeCount ?? room.members.length;
+  const lastMessageAt = new Map(shown.filter((m) => m.userId).map((m) => [m.userId!, m._creationTime]));
+  const typingNames = seated
+    .filter((m) => m.userId !== userId && (m.typingUntil ?? 0) > now)
+    .filter((m) => (lastMessageAt.get(m.userId) ?? 0) < m.typingUntil! - TYPING_MS)
+    .map((m) => m.name.split(" ")[0]);
+
+  function changeText(next: string) {
+    setText(next);
+    if (!next.trim() || !userId || room?.status !== "live") return;
+    const at = Date.now();
+    if (at - lastTypingAt.current < TYPING_THROTTLE_MS) return;
+    lastTypingAt.current = at;
+    setTyping({ roomId: id, userId }).catch(() => {});
+  }
 
   async function submit() {
     const clean = text.trim();
@@ -169,6 +188,7 @@ export default function GroupChat() {
           keyExtractor={(m) => m._id}
           contentContainerStyle={styles.messages}
           onContentSizeChange={() => list.current?.scrollToEnd({ animated: true })}
+          ListFooterComponent={typingNames.length > 0 ? <TypingBubble names={typingNames} /> : undefined}
           renderItem={({ item }) => {
             if (item.kind !== "user") {
               return (
@@ -209,7 +229,7 @@ export default function GroupChat() {
           <View style={styles.inputWrap}>
             <TextInput
               value={text}
-              onChangeText={setText}
+              onChangeText={changeText}
               placeholder="Say what you think, or ask a question"
               placeholderTextColor={colors.muted}
               maxLength={MAX}

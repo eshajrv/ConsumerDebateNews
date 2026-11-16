@@ -242,6 +242,10 @@ export async function voteEnd(_args: { roomId: Id; userId: Id; wantsToEnd: boole
   return null;
 }
 
+export async function setTyping(_args: { roomId: Id; userId: Id }): Promise<null> {
+  return null;
+}
+
 export function featuredRoom(_args: { topicId?: Id; now?: number }): FeaturedRoom | null {
   const room = liveRooms({})[0];
   return room ? { ...room, recentMessages: fakeMessages.filter((m) => m.roomId === room._id).length } : null;

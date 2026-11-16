@@ -50,6 +50,7 @@ export const api = {
     ping: mutation<{ roomId: Id; userId: Id }, null>("rooms:ping"),
     startNow: mutation<{ roomId: Id; userId: Id }, null>("rooms:startNow"),
     voteEnd: mutation<{ roomId: Id; userId: Id; wantsToEnd: boolean }, null>("rooms:voteEnd"),
+    setTyping: mutation<{ roomId: Id; userId: Id }, null>("rooms:setTyping"),
     watchBeat: mutation<{ roomId: Id; viewerKey: string }, null>("rooms:watchBeat"),
     stopWatching: mutation<{ roomId: Id; viewerKey: string }, null>("rooms:stopWatching"),
   },
