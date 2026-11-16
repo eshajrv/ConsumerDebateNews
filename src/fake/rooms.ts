@@ -224,6 +224,10 @@ export async function leaveRoom(_args: { roomId: Id; userId: Id }): Promise<null
   return null;
 }
 
+export async function pingLobby(_args: { roomId: Id; userId: Id }): Promise<null> {
+  return null;
+}
+
 export async function voteEnd(_args: { roomId: Id; userId: Id; wantsToEnd: boolean }): Promise<null> {
   return null;
 }
