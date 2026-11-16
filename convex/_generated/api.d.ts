@@ -17,6 +17,7 @@ import type * as http from "../http.js";
 import type * as keiki from "../keiki.js";
 import type * as leaderboard from "../leaderboard.js";
 import type * as lib_claude from "../lib/claude.js";
+import type * as lib_topicImages from "../lib/topicImages.js";
 import type * as links from "../links.js";
 import type * as matching from "../matching.js";
 import type * as memory from "../memory.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   keiki: typeof keiki;
   leaderboard: typeof leaderboard;
   "lib/claude": typeof lib_claude;
+  "lib/topicImages": typeof lib_topicImages;
   links: typeof links;
   matching: typeof matching;
   memory: typeof memory;

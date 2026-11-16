@@ -28,6 +28,7 @@ export const feed = internalQuery({
             question: t.question,
             sideA: t.sideA,
             sideB: t.sideB,
+            imageUrl: t.imageUrl,
             peopleAnswered: s.total,
             leaningA: s.leanA,
             leaningB: s.leanB,

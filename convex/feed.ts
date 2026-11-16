@@ -11,6 +11,7 @@ import { Doc, Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { Supermemory } from "supermemory";
 import { askClaude, extractJson } from "./lib/claude";
+import { topicImage } from "./lib/topicImages";
 import { liveTopics, pacificDate } from "./dailyTopics";
 
 const LEARN_PICKS = 2; // topics from categories the user wants to learn more about
@@ -58,7 +59,7 @@ export async function feedForUser(ctx: QueryCtx, userId: Id<"users">, date: stri
   take(STRETCH_PICKS, (t) => !learn.has(cat(t)) && !know.has(cat(t)));
   take(PICKS_PER_USER - chosen.length, () => true); // fill any empty slot
 
-  return shared ? [shared, ...chosen] : chosen;
+  return (shared ? [shared, ...chosen] : chosen).map((t) => ({ ...t, imageUrl: topicImage(t) }));
 }
 
 export const forUser = query({
