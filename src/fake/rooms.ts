@@ -129,6 +129,7 @@ export async function joinRoom({ userId, topicId, mode }: { userId: Id; topicId:
       topicId,
       slotStart: slot,
       status: "waiting",
+      mode: mode ?? "group",
       topic: getTopic(topicId) ?? null,
       members: startingMembers(mode).map((m) => ({ ...m })),
     };

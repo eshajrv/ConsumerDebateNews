@@ -6,7 +6,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { BackButton } from "../../src/components/BackButton";
 import { dropInDuration, MiniScale } from "../../src/components/MiniScale";
 import { useRoom } from "../../src/data";
-import { formatCountdown, formatTime, useNow } from "../../src/date";
 import { useSavedUserId } from "../../src/session";
 import { card, colors, fonts, spacing, type } from "../../src/theme";
 
@@ -14,13 +13,17 @@ export default function RoomLobby() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = useSavedUserId();
   const room = useRoom(id);
-  const now = useNow();
   const [starting] = useState(() => new Animated.Value(0));
   const [zoom] = useState(() => new Animated.Value(0));
 
   const status = room?.status;
   const memberCount = room?.members.length ?? 0;
+  const movedTo = room?.members.find((m) => m.userId === userId)?.movedToRoomId ?? room?.movedToRoomId;
   useEffect(() => {
+    if (status === "rolled" && movedTo) {
+      router.replace(`/room/${movedTo}`);
+      return;
+    }
     if (status === "summarizing" || status === "done") {
       router.replace(`/room/${id}/summary`);
       return;
@@ -37,7 +40,7 @@ export default function RoomLobby() {
       if (finished) router.replace(`/room/${id}/chat`);
     });
     return () => moment.stop();
-  }, [status, id, starting, zoom, memberCount]);
+  }, [status, id, starting, zoom, memberCount, movedTo]);
 
   if (!room) {
     return (
@@ -48,6 +51,7 @@ export default function RoomLobby() {
   }
 
   const live = room.status === "live";
+  const duo = room.mode === "duo";
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -70,19 +74,23 @@ export default function RoomLobby() {
           </Animated.View>
         ) : (
           <View style={styles.countdownWrap}>
-            {room.status !== "rolled" && <Text style={type.title}>Waiting for the table to fill</Text>}
-            <Text style={type.label}>
-              {room.status !== "rolled" ? `Table opens at ${formatTime(room.slotStart)}` : room.slotStart > now ? `Moved to ${formatTime(room.slotStart)}` : "Moved to the next table"}
+            <Text style={type.title}>Waiting for people to sit down</Text>
+            <Text style={styles.countdown}>
+              {room.members.length}/{duo ? 2 : 6}
             </Text>
-            {room.slotStart > now && <Text style={styles.countdown}>{formatCountdown(room.slotStart - now)}</Text>}
-            {room.status === "rolled" && <Text style={styles.muted}>Not enough different views yet, so we moved you to the next table.</Text>}
+            <ActivityIndicator color={colors.accent} />
+            <Text style={styles.muted}>
+              {duo
+                ? "Your table opens as soon as someone who sees it differently sits down."
+                : "Your table opens once people with different views are here."}
+            </Text>
           </View>
         )}
 
         <View style={[card, styles.membersCard]}>
           <Text style={type.title}>{room.members.length} at this table</Text>
           <MiniScale members={room.members} youId={userId} dropIn={live} />
-          <Text style={styles.muted}>{live ? "Everyone's here." : "Tables open with 2+ people."}</Text>
+          <Text style={styles.muted}>{live ? "Everyone's here." : "Stay on this screen. We'll take you in when it opens."}</Text>
         </View>
       </Animated.View>
     </SafeAreaView>
