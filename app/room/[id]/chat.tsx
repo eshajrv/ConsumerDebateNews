@@ -4,13 +4,21 @@ import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pre
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../../src/components/Button";
+import { SeatTable } from "../../../src/components/SeatTable";
 import { type RoomMessage, useLeaveRoom, useRoom, useRoomMessages, useSendMessage, useVoteEnd } from "../../../src/data";
 import { formatCountdown, useNow } from "../../../src/date";
 import { errorMessage } from "../../../src/errors";
 import { useSavedUserId } from "../../../src/session";
-import { card, colors, fonts, positionColor, radius, spacing, type } from "../../../src/theme";
+import { card, colors, fonts, radius, spacing, type } from "../../../src/theme";
 
 const MAX = 500;
+
+// Bubble tint and name color by where the sender stands
+const BAND_TINT = {
+  A: { bubble: colors.sideASoft, name: colors.sideA },
+  M: { bubble: colors.middleSoft, name: colors.middleText },
+  B: { bubble: colors.sideBSoft, name: colors.sideB },
+} as const;
 
 export default function GroupChat() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -47,6 +55,10 @@ export default function GroupChat() {
   const shown = messages.filter((m) => m !== opener);
   const memberById = new Map(room.members.map((m) => [m.userId, m]));
   const endVotes = Math.max(room.endVotes ?? 0, wantsToEnd ? 1 : 0);
+  const seated = room.members.filter((m) => !m.leftAt);
+  const me = memberById.get(userId ?? "");
+  const listenFor = me?.summarizesUserId ? memberById.get(me.summarizesUserId) : undefined;
+  const lastTwo = remaining > 0 && remaining <= 120_000;
   const activeCount = room.activeCount ?? room.members.length;
 
   async function submit() {
@@ -94,23 +106,29 @@ export default function GroupChat() {
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={styles.header}>
-          <View style={styles.dots}>
-            {room.members.map((m) => (
-              <View key={m.userId} style={[styles.headerDot, { backgroundColor: positionColor(m.position) }, m.userId === userId && styles.youRing]} />
-            ))}
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={[styles.timer, remaining <= 120_000 && { color: colors.sideA }]}>{formatCountdown(remaining)}</Text>
-            <Pressable
-              onPress={() => setConfirmLeave(true)}
-              hitSlop={8}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.leave, pressed && { opacity: 0.7 }]}
-            >
-              <Text style={styles.leaveText}>Leave</Text>
-            </Pressable>
+          <Pressable
+            onPress={() => setConfirmLeave(true)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Leave the table"
+            style={({ pressed }) => pressed && { opacity: 0.7 }}
+          >
+            <Text style={styles.back}>‹ Back</Text>
+          </Pressable>
+          <Text style={styles.atBar}>{`${room.watcherCount ?? 0} at the bar`}</Text>
+          <View style={[styles.timerPill, lastTwo && styles.timerPillUrgent]}>
+            <Text style={[styles.timer, lastTwo && styles.timerUrgent]}>{formatCountdown(remaining)}</Text>
           </View>
         </View>
+
+        {room.topic && (
+          <View style={styles.tableArea}>
+            <Text style={styles.question} numberOfLines={2}>
+              {room.topic.question}
+            </Text>
+            <SeatTable members={seated} youId={userId} sideA={room.topic.sideA} sideB={room.topic.sideB} height={120} />
+          </View>
+        )}
 
         {room.status === "live" && (
           <View style={styles.endRow}>
@@ -135,13 +153,13 @@ export default function GroupChat() {
         )}
 
         {opener && (
-          <View style={styles.pinned}>
+          <View style={[styles.hostNote, styles.pinned]}>
             <Text style={styles.judgeName}>The host</Text>
-            <Text style={styles.pinnedText}>{opener.text}</Text>
+            <Text style={styles.hostText}>{opener.text}</Text>
           </View>
         )}
 
-        {remaining > 0 && remaining <= 120_000 && (
+        {lastTwo && (
           <Text style={styles.warning}>2 minutes left. Start finding where you agree.</Text>
         )}
 
@@ -154,26 +172,38 @@ export default function GroupChat() {
           renderItem={({ item }) => {
             if (item.kind !== "user") {
               return (
-                <View style={styles.judge}>
+                <View style={styles.hostNote}>
                   <Text style={styles.judgeName}>The host</Text>
-                  <Text style={styles.judgeText}>{item.text}</Text>
+                  <Text style={styles.hostText}>{item.text}</Text>
                 </View>
               );
             }
             const member = item.userId ? memberById.get(item.userId) : undefined;
             const mine = item.userId === userId;
+            const tint = BAND_TINT[member?.band ?? "M"];
             return (
               <View style={[styles.row, mine && styles.rowMine]}>
-                {!mine && <View style={[styles.dot, { backgroundColor: positionColor(member?.position ?? 50) }]} />}
-                <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther, item.flagged && styles.flagged]}>
-                  {!mine && <Text style={styles.sender}>{member?.name ?? "Someone"}</Text>}
-                  <Text style={[styles.msgText, mine && { color: colors.onAccent }]}>{item.text}</Text>
+                <View
+                  style={[
+                    styles.bubble,
+                    { backgroundColor: tint.bubble },
+                    mine ? styles.bubbleMine : styles.bubbleOther,
+                    item.flagged && styles.flagged,
+                  ]}
+                >
+                  <Text style={[styles.sender, { color: tint.name }]}>{mine ? "You" : (member?.name ?? "Someone").split(" ")[0]}</Text>
+                  <Text style={styles.msgText}>{item.text}</Text>
                 </View>
-                {mine && <View style={[styles.dot, styles.youRing, { backgroundColor: positionColor(member?.position ?? 50) }]} />}
               </View>
             );
           }}
         />
+
+        {listenFor && room.status === "live" && (
+          <Text style={styles.listen}>
+            Listen for <Text style={styles.listenName}>{listenFor.name.split(" ")[0]}</Text>: you&apos;ll sum up their view at the end
+          </Text>
+        )}
 
         <View style={styles.composer}>
           <View style={styles.inputWrap}>
@@ -230,33 +260,42 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { alignItems: "center", justifyContent: "center" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.screen, paddingVertical: spacing.sm },
-  dots: { flexDirection: "row", gap: 6 },
-  headerDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: colors.background },
-  youRing: { borderColor: colors.accent, borderWidth: 2 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  leave: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingVertical: spacing.xs, paddingHorizontal: spacing.md - 4 },
-  leaveText: { fontSize: 13, fontFamily: fonts.semibold, color: colors.muted },
+  back: { fontSize: 16, fontFamily: fonts.semibold, color: colors.accent },
+  atBar: { fontSize: 13, fontFamily: fonts.medium, color: colors.muted },
+  timerPill: { backgroundColor: colors.accentSoft, borderRadius: radius.pill, paddingVertical: spacing.xs, paddingHorizontal: spacing.md - 4 },
+  timerPillUrgent: { backgroundColor: colors.accent },
+  timerUrgent: { color: colors.onAccent },
+  tableArea: { paddingHorizontal: spacing.screen, gap: spacing.xs, paddingBottom: spacing.sm },
+  question: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, color: colors.text },
+  hostNote: {
+    backgroundColor: colors.accentSoft,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accent,
+    borderRadius: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md - 4,
+    gap: 2,
+  },
+  hostText: { fontSize: 15, fontFamily: fonts.regular, lineHeight: 21, color: colors.text },
+  listen: { fontSize: 13, fontFamily: fonts.regular, color: colors.muted, paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  listenName: { fontFamily: fonts.semibold, color: colors.text },
   endRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: spacing.sm, paddingHorizontal: spacing.screen, paddingBottom: spacing.sm },
   endPill: { borderWidth: 1, borderColor: colors.text, borderRadius: radius.pill, paddingVertical: spacing.xs, paddingHorizontal: spacing.md - 4 },
   endPillText: { fontSize: 13, fontFamily: fonts.semibold, color: colors.text },
   endWaiting: { fontSize: 13, fontFamily: fonts.medium, color: colors.muted, fontVariant: ["tabular-nums"] },
   undo: { fontSize: 13, fontFamily: fonts.semibold, color: colors.accent, textDecorationLine: "underline" },
-  timer: { fontSize: 20, fontFamily: fonts.bold, color: colors.text, fontVariant: ["tabular-nums"] },
-  pinned: { marginHorizontal: spacing.screen, padding: spacing.md, borderRadius: radius.card, backgroundColor: colors.surface, gap: spacing.xs },
-  pinnedText: { fontSize: 16, fontFamily: fonts.semibold, lineHeight: 22, color: colors.text },
+  timer: { fontSize: 16, fontFamily: fonts.bold, color: colors.accent, fontVariant: ["tabular-nums"] },
+  pinned: { marginHorizontal: spacing.screen },
   warning: { textAlign: "center", fontSize: 14, fontFamily: fonts.semibold, color: colors.sideA, paddingTop: spacing.sm },
   messages: { padding: spacing.screen, gap: spacing.md },
-  judge: { alignSelf: "center", maxWidth: "85%", alignItems: "center", gap: 2, paddingVertical: spacing.xs },
-  judgeName: { fontSize: 12, fontFamily: fonts.bold, color: colors.muted, letterSpacing: 0.5, textTransform: "uppercase" },
-  judgeText: { fontSize: 15, fontFamily: fonts.regular, lineHeight: 21, color: colors.muted, textAlign: "center", fontStyle: "italic" },
+  judgeName: { fontSize: 11, fontFamily: fonts.bold, color: colors.accent, letterSpacing: 1.2, textTransform: "uppercase" },
   row: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm },
   rowMine: { justifyContent: "flex-end" },
-  dot: { width: 12, height: 12, borderRadius: 6, marginBottom: 6 },
   bubble: { maxWidth: "78%", borderRadius: radius.card, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md, gap: 2 },
-  bubbleOther: { backgroundColor: colors.surface, borderBottomLeftRadius: 4 },
-  bubbleMine: { backgroundColor: colors.accent, borderBottomRightRadius: 4 },
+  bubbleOther: { borderBottomLeftRadius: 4 },
+  bubbleMine: { borderBottomRightRadius: 4 },
   flagged: { borderWidth: 1, borderColor: colors.sideA },
-  sender: { fontSize: 12, fontFamily: fonts.bold, color: colors.muted },
+  sender: { fontSize: 12, fontFamily: fonts.bold },
   msgText: { fontSize: 16, fontFamily: fonts.regular, lineHeight: 22, color: colors.text },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   inputWrap: { flex: 1 },

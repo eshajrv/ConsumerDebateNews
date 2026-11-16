@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { BackButton } from "../../src/components/BackButton";
 import { Button } from "../../src/components/Button";
 import { SplitBar } from "../../src/components/SplitBar";
+import { TopicPhoto } from "../../src/components/TopicPhoto";
 import { StanceSlider } from "../../src/components/StanceSlider";
 import { type RoomMode, useFeed, useJoinRoom, useNextRoom, useSetStance, useTopicStats } from "../../src/data";
 import { pacificDate, todayString } from "../../src/date";
@@ -116,6 +117,7 @@ export default function TopicScreen() {
         <BackButton />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
+        <TopicPhoto imageUrl={topic.imageUrl} category={topic.category} height={180} roundAll fade={topic.isShared} />
         <Text style={type.category}>{topic.isShared ? "The house table" : topic.category}</Text>
         <Text style={type.question}>{topic.question}</Text>
         <Text style={type.body}>{topic.brief}</Text>

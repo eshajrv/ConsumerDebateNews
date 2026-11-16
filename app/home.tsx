@@ -7,6 +7,7 @@ import { Button } from "../src/components/Button";
 import { Eye } from "../src/components/Eye";
 import { ProfileButton } from "../src/components/ProfileButton";
 import { SplitBar } from "../src/components/SplitBar";
+import { TopicPhoto } from "../src/components/TopicPhoto";
 import { Toast } from "../src/components/Toast";
 import { Trophy } from "../src/components/Trophy";
 import { type Topic, useFeed, useNextRoom, useNotifications, useTopicStats, useUser } from "../src/data";
@@ -21,6 +22,7 @@ function HouseTableCard({ topic }: { topic: Topic }) {
   const open = () => router.push(`/topic/${topic._id}`);
   return (
     <Pressable onPress={open} style={({ pressed }) => [card, styles.card, styles.house, pressed && styles.pressed]}>
+      <TopicPhoto imageUrl={topic.imageUrl} category={topic.category} fade bleed={{ top: card.padding, horizontal: card.padding }} />
       <Text style={[type.category, styles.houseLabel]}>The house table</Text>
       <Text style={[styles.question, styles.houseQuestion]}>{topic.question}</Text>
       <SplitBar stats={stats} sideA={topic.sideA} sideB={topic.sideB} onDark />
@@ -44,6 +46,7 @@ function TopicCard({ topic }: { topic: Topic }) {
       onPress={() => router.push(`/topic/${topic._id}`)}
       style={({ pressed }) => [card, styles.card, pressed && styles.pressed]}
     >
+      <TopicPhoto imageUrl={topic.imageUrl} category={topic.category} bleed={{ top: card.padding, horizontal: card.padding }} />
       <Text style={type.category}>{topic.category}</Text>
       <Text style={styles.question}>{topic.question}</Text>
       <SplitBar stats={stats} sideA={topic.sideA} sideB={topic.sideB} />
@@ -102,9 +105,9 @@ const styles = StyleSheet.create({
   content: { padding: spacing.screen, gap: spacing.md },
   header: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginBottom: spacing.sm },
   flex: { flex: 1, gap: spacing.xs },
-  card: { gap: spacing.md },
+  card: { gap: spacing.md, overflow: "hidden" },
   wordmark: { fontFamily: fonts.wordmark, fontSize: 28, lineHeight: 34, color: colors.feature },
-  house: { backgroundColor: colors.feature, borderColor: colors.accent, borderWidth: 1 },
+  house: { backgroundColor: colors.feature, borderColor: colors.accent, borderWidth: 1, overflow: "hidden" },
   houseLabel: { color: colors.featureAccent },
   houseQuestion: { color: colors.featureText },
   password: {

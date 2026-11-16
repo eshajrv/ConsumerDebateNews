@@ -3,44 +3,19 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { dropInDuration, MiniScale } from "../../src/components/MiniScale";
-import { type RoomMember, useLeaveRoom, usePingLobby, useRoom } from "../../src/data";
+import { Button } from "../../src/components/Button";
+import { dropInDuration } from "../../src/components/MiniScale";
+import { SeatTable } from "../../src/components/SeatTable";
+import { TopicPhoto } from "../../src/components/TopicPhoto";
+import { useLeaveRoom, usePingLobby, useRoom, useStartNow } from "../../src/data";
+import { errorMessage } from "../../src/errors";
 import { useSavedUserId } from "../../src/session";
-import { card, colors, fonts, positionColor, spacing, type } from "../../src/theme";
+import { card, colors, fonts, spacing, type } from "../../src/theme";
 
-// Same rules as checkStart in convex/rooms.ts
+// Same rules as convex/rooms.ts
 const MIN_SEATS = { duo: 2, group: 3 };
 const MAX_SEATS = { duo: 2, group: 6 };
-const MIN_SPREAD = 30;
 const PING_MS = 15_000;
-
-function Seat({ member, you }: { member?: RoomMember; you: boolean }) {
-  const [pop] = useState(() => new Animated.Value(0));
-  useEffect(() => {
-    const anim = Animated.spring(pop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true });
-    anim.start();
-    return () => anim.stop();
-  }, [pop]);
-
-  if (!member) {
-    return (
-      <View style={styles.seat}>
-        <View style={[styles.avatar, styles.emptyAvatar]} />
-        <Text style={[styles.seatName, { color: colors.muted }]}>Open seat</Text>
-      </View>
-    );
-  }
-  return (
-    <Animated.View style={[styles.seat, { opacity: pop, transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
-      <View style={[styles.avatar, { backgroundColor: positionColor(member.position) }, you && styles.youAvatar]}>
-        <Text style={styles.initial}>{member.name.charAt(0).toUpperCase() || "?"}</Text>
-      </View>
-      <Text style={[styles.seatName, you && { color: colors.accent }]} numberOfLines={1}>
-        {you ? "You" : member.name}
-      </Text>
-    </Animated.View>
-  );
-}
 
 export default function RoomLobby() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -48,6 +23,9 @@ export default function RoomLobby() {
   const room = useRoom(id);
   const ping = usePingLobby();
   const leave = useLeaveRoom();
+  const startNow = useStartNow();
+  const [startingNow, setStartingNow] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const [starting] = useState(() => new Animated.Value(0));
   const [zoom] = useState(() => new Animated.Value(0));
 
@@ -92,6 +70,18 @@ export default function RoomLobby() {
     else router.replace("/home");
   }
 
+  async function start() {
+    if (!userId) return;
+    setStartingNow(true);
+    setStartError(null);
+    try {
+      await startNow({ roomId: id, userId });
+    } catch (e) {
+      setStartError(errorMessage(e, "Couldn't start the table. Try again."));
+      setStartingNow(false);
+    }
+  }
+
   if (!room) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
@@ -101,21 +91,11 @@ export default function RoomLobby() {
   }
 
   const live = room.status === "live";
-  const mode = room.mode ?? "group";
+  const duo = room.mode === "duo";
+  const mode = duo ? "duo" : "group";
   const seated = room.members.length;
-  const positions = room.members.map((m) => m.position);
-  const viewsDiffer =
-    seated > 0 && Math.max(...positions) - Math.min(...positions) >= MIN_SPREAD && (mode === "duo" || room.members.some((m) => m.band === "M"));
   const needed = MIN_SEATS[mode] - seated;
-  const waitingLine =
-    needed > 0
-      ? `Waiting for ${needed} more ${needed === 1 ? "person" : "people"}`
-      : viewsDiffer
-        ? "Starting..."
-        : mode === "duo"
-          ? "Waiting for someone who sees it differently"
-          : "Waiting for more different views (someone in the middle helps)";
-  const seats = Array.from({ length: MAX_SEATS[mode] }, (_, i) => room.members[i]);
+  const canStart = !duo && needed <= 0;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -140,35 +120,47 @@ export default function RoomLobby() {
           </Animated.View>
         ) : (
           <View style={styles.countdownWrap}>
-            <Text style={type.label}>{mode === "duo" ? "1-on-1 lobby" : "Group lobby"}</Text>
+            <Text style={type.title}>Waiting for people to sit down</Text>
             <Text style={styles.countdown}>
               {seated}/{MAX_SEATS[mode]}
             </Text>
-            <View style={styles.waitingRow}>
-              <ActivityIndicator color={colors.accent} size="small" />
-              <Text style={styles.waiting}>{waitingLine}</Text>
-            </View>
-            {mode === "group" && <Text style={styles.muted}>Starts at {MIN_SEATS.group} people, seats up to {MAX_SEATS.group}.</Text>}
+            {canStart ? (
+              <>
+                <Text style={styles.muted}>Enough people are here. Start now, or wait for more (up to {MAX_SEATS.group}).</Text>
+                <View style={styles.startButton}>
+                  <Button title="Start now" onPress={start} loading={startingNow} />
+                </View>
+                {startError && <Text style={styles.error}>{startError}</Text>}
+              </>
+            ) : (
+              <>
+                <ActivityIndicator color={colors.accent} />
+                <Text style={styles.muted}>
+                  {duo
+                    ? "Your table opens as soon as someone who sees it differently sits down."
+                    : `Waiting for ${needed} more ${needed === 1 ? "person" : "people"}. You can start at ${MIN_SEATS.group}.`}
+                </Text>
+              </>
+            )}
           </View>
         )}
 
         <View style={[card, styles.membersCard]}>
-          {live ? (
+          {room.topic && (
             <>
-              <Text style={type.title}>{seated} at this table</Text>
-              <MiniScale members={room.members} youId={userId} dropIn />
-              <Text style={styles.muted}>Everyone&apos;s here.</Text>
-            </>
-          ) : (
-            <>
-              <View style={styles.seats}>
-                {seats.map((m, i) => (
-                  <Seat key={m ? m.userId : `open-${i}`} member={m} you={m?.userId === userId} />
-                ))}
-              </View>
-              <Text style={styles.muted}>Stay on this screen. We&apos;ll take you in the moment it opens.</Text>
+              <TopicPhoto imageUrl={room.topic.imageUrl} category={room.topic.category} bleed={{ top: card.padding, horizontal: card.padding }} />
+              <Text style={type.title}>{room.topic.question}</Text>
             </>
           )}
+          <Text style={type.label}>{room.members.length} at this table</Text>
+          <SeatTable
+            members={room.members}
+            youId={userId}
+            seats={MAX_SEATS[mode]}
+            sideA={room.topic?.sideA}
+            sideB={room.topic?.sideB}
+          />
+          <Text style={styles.muted}>{live ? "Everyone's here." : "Stay on this screen. We'll take you in when it opens."}</Text>
         </View>
       </Animated.View>
     </SafeAreaView>
@@ -184,17 +176,10 @@ const styles = StyleSheet.create({
   countdown: { fontSize: 64, fontFamily: fonts.bold, color: colors.text, fontVariant: ["tabular-nums"] },
   startingWrap: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.lg },
   startingText: { fontSize: 28, fontFamily: fonts.bold, color: colors.accent, textAlign: "center" },
-  membersCard: { gap: spacing.lg },
+  membersCard: { gap: spacing.md, overflow: "hidden" },
   back: { fontSize: 16, fontFamily: fonts.semibold, color: colors.accent },
-  waitingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  waiting: { fontSize: 16, fontFamily: fonts.semibold, color: colors.text },
-  seats: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", rowGap: spacing.lg },
-  seat: { width: "33%", alignItems: "center", gap: spacing.xs },
-  avatar: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: colors.surface },
-  emptyAvatar: { backgroundColor: "transparent", borderStyle: "dashed", borderColor: colors.border, borderWidth: 2 },
-  youAvatar: { borderColor: colors.accent },
-  initial: { fontSize: 22, fontFamily: fonts.bold, color: colors.surface },
-  seatName: { fontSize: 14, fontFamily: fonts.semibold, color: colors.text, maxWidth: 90 },
+  startButton: { alignSelf: "stretch" },
+  error: { fontSize: 14, fontFamily: fonts.regular, color: colors.error, textAlign: "center" },
   muted: { fontSize: 15, fontFamily: fonts.regular, color: colors.muted, textAlign: "center" },
 });
 

@@ -150,6 +150,7 @@ export default defineSchema({
     left: v.optional(v.boolean()),
     leftAt: v.optional(v.number()), // when they left a live room (rooms.leave)
     wantsToEnd: v.optional(v.boolean()), // voted to wrap up early (rooms.voteEnd)
+    typingUntil: v.optional(v.number()), // typing indicator: ms timestamp it expires (rooms.setTyping)
     movedToRoomId: v.optional(v.id("rooms")), // set when this member's room rolled
     positionAfter: v.optional(v.number()), // "Minds moved": where they stand after the chat, 0-100
     endPositionAI: v.optional(v.number()), // AI estimate of where they ended up, from their messages
@@ -162,6 +163,13 @@ export default defineSchema({
     .index("by_room", ["roomId"])
     .index("by_user", ["userId"])
     .index("by_room_and_user", ["roomId", "userId"]),
+
+  // Spectators currently watching a live room (heartbeat from the watch screen)
+  roomWatchers: defineTable({
+    roomId: v.id("rooms"),
+    viewerKey: v.string(), // userId, or a random id per device
+    lastSeen: v.number(),
+  }).index("by_room", ["roomId"]),
 
   roomMessages: defineTable({
     roomId: v.id("rooms"),
