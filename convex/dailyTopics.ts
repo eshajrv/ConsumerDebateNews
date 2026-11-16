@@ -9,8 +9,9 @@
 import { internalAction, internalMutation, internalQuery, mutation, query, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { askClaude, extractJson } from "./lib/claude";
+import { guessImage, imageForKeyword, imageKeywords } from "./lib/topicImages";
 
 // Feeds and their lean. Leans are approximate: check each outlet on allsides.com/media-bias.
 // Any feed that fails is logged and skipped, so one broken URL never stops the run.
@@ -111,6 +112,7 @@ For each, write in your own words (never copy article text, never invent facts o
 - sideAView, sideBView: one sentence each, the strongest fair version of that side
 - sources: 2-4 links from the headlines above, from different outlets when possible
 - isShared: true for the one shared topic, false for the rest
+- imageKeyword: the best photo for the card, exactly one of: ${JSON.stringify(imageKeywords())}
 
 Return ONLY a JSON array of ${TOPICS_PER_DAY} objects with exactly those fields.`;
 
@@ -124,6 +126,7 @@ type TopicDraft = {
   sideBView: string;
   sources: string[];
   isShared?: boolean;
+  imageKeyword?: string;
 };
 
 function validTopic(t: TopicDraft): boolean {
@@ -195,6 +198,7 @@ export const generate = internalAction({
       sideBView: t.sideBView,
       sources: t.sources.filter((s) => typeof s === "string"),
       isShared: i === sharedIndex,
+      imageUrl: imageForKeyword(t.imageKeyword, t.category),
     }));
 
     // 4. Publish (replaces today's set if forced)
@@ -230,6 +234,7 @@ const topicFields = {
   sideBView: v.string(),
   sources: v.array(v.string()),
   isShared: v.boolean(),
+  imageUrl: v.optional(v.string()),
 };
 
 export const publishDay = internalMutation({
@@ -242,6 +247,42 @@ export const publishDay = internalMutation({
       .collect();
     for (const t of old) await ctx.db.patch(t._id, { status: "replaced" });
     for (const t of topics) await ctx.db.insert("topics", { ...t, date, status: "live" });
+  },
+});
+
+// One-off: give the live topics for `date` (default today) a stock photo. AI picks the keyword;
+// if the AI call fails, the best keyword match in the topic's category is used.
+// Run from the dashboard: dailyTopics:backfillImages (args: {} or { "date": "YYYY-MM-DD" }).
+export const backfillImages = internalAction({
+  args: { date: v.optional(v.string()) },
+  handler: async (ctx, { date }): Promise<number> => {
+    const topics: Doc<"topics">[] = await ctx.runQuery(internal.dailyTopics.forDate, { date: date ?? pacificDate() });
+    if (topics.length === 0) return 0;
+    let picked: Record<string, string> = {};
+    try {
+      const prompt = `Pick the best stock photo keyword for each news topic card.
+Allowed keywords: ${JSON.stringify(imageKeywords())}
+Topics:
+${topics.map((t) => `- id ${t._id} [${t.category}] ${t.question}`).join("\n")}
+
+Return ONLY a JSON object mapping each topic id to one allowed keyword.`;
+      picked = extractJson<Record<string, string>>(await askClaude(prompt, 800));
+    } catch (e) {
+      console.log(`backfillImages: AI failed, matching keywords instead: ${(e as Error).message}`);
+    }
+    const updates = topics.map((t) => ({
+      id: t._id,
+      imageUrl: picked[t._id] ? imageForKeyword(picked[t._id], t.category) : guessImage(t),
+    }));
+    await ctx.runMutation(internal.dailyTopics.setImages, { updates });
+    return updates.length;
+  },
+});
+
+export const setImages = internalMutation({
+  args: { updates: v.array(v.object({ id: v.id("topics"), imageUrl: v.string() })) },
+  handler: async (ctx, { updates }) => {
+    for (const { id, imageUrl } of updates) await ctx.db.patch(id, { imageUrl });
   },
 });
 

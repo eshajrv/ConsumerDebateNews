@@ -31,6 +31,7 @@ export default defineSchema({
     sources: v.array(v.string()),
     status: v.string(), // "live" | "replaced" | "hidden"
     isShared: v.optional(v.boolean()), // exactly one shared topic per day
+    imageUrl: v.optional(v.string()), // stock photo from convex/lib/topicImages.ts (never from news articles)
   }).index("by_date_status", ["date", "status"]),
 
   // Where each user stands on a topic: 0 = fully sideA, 100 = fully sideB
