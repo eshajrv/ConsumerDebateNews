@@ -99,6 +99,7 @@ export const remember = internalAction({
       try {
         await new Supermemory().add(ns(s.userId), {
           id: `${s.roomId}-${s.userId}-shift`,
+          dreaming: "instant", // searchable right away
           content:
             `On ${s.date}, after a group conversation about the ${s.category} question "${s.question}", ` +
             `${s.name} went from ${lean(s.before, s.sideA, s.sideB)} (${s.before}/100) to ` +
@@ -110,6 +111,7 @@ export const remember = internalAction({
         return;
       }
       await ctx.scheduler.runAfter(0, internal.memory.updateInsight, { userId: s.userId });
+      await ctx.scheduler.runAfter(0, internal.feed.rankForUser, { userId: s.userId });
       return;
     }
     if (!summaryId) return;
@@ -120,6 +122,7 @@ export const remember = internalAction({
       // About the person whose view was summarized
       await client.add(ns(d.aboutId), {
         id: `${summaryId}-view`,
+        dreaming: "instant",
         content:
           `On ${d.date}, ${d.aboutName} discussed the ${d.category} question "${d.question}" ` +
           `and was ${lean(d.aboutPosition, d.sideA, d.sideB)}. ` +
@@ -129,6 +132,7 @@ export const remember = internalAction({
       // About the person who wrote the summary (how well they listen)
       await client.add(ns(d.authorId), {
         id: `${summaryId}-listening`,
+        dreaming: "instant",
         content:
           `On ${d.date}, ${d.authorName} talked with someone who disagreed with them about the ` +
           `${d.category} question "${d.question}". ${d.authorName} summarized the other person's ` +
@@ -141,6 +145,9 @@ export const remember = internalAction({
     }
     await ctx.scheduler.runAfter(0, internal.memory.updateInsight, { userId: d.aboutId });
     await ctx.scheduler.runAfter(0, internal.memory.updateInsight, { userId: d.authorId });
+    // What they engage with just changed, so re-rank today's feed for both people
+    await ctx.scheduler.runAfter(0, internal.feed.rankForUser, { userId: d.aboutId });
+    await ctx.scheduler.runAfter(0, internal.feed.rankForUser, { userId: d.authorId });
   },
 });
 
@@ -189,5 +196,36 @@ export const setInsight = internalMutation({
   args: { userId: v.id("users"), insight: v.string() },
   handler: async (ctx, { userId, insight }) => {
     await ctx.db.patch(userId, { insight: insight.slice(0, 200) });
+  },
+});
+
+// Checks the Supermemory key and connection end to end:
+//   npx convex run memory:selfTest
+// Adds a test memory to "user_selftest", waits 5 seconds, searches for it, and logs PASS or FAIL.
+export const selfTest = internalAction({
+  args: {},
+  handler: async () => {
+    const namespace = "user_selftest";
+    const marker = `speak-easy self test ${Date.now()}`;
+    try {
+      const client = new Supermemory();
+      await client.add(namespace, {
+        id: "selftest",
+        content: `Self test: ${marker}. The tester likes talking about air traffic control.`,
+        dreaming: "instant",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      const { results } = await client.search(namespace, { query: "What does the tester like talking about?", limit: 5 });
+      const found = results.map((r) => r.memory ?? r.chunk ?? "").filter((m) => m.length > 0);
+      if (found.length === 0) {
+        console.log("Supermemory selfTest FAIL: the memory was added but search returned nothing");
+        return { ok: false, found };
+      }
+      console.log(`Supermemory selfTest PASS: found ${found.length} result(s): ${JSON.stringify(found)}`);
+      return { ok: true, found };
+    } catch (e) {
+      console.log(`Supermemory selfTest FAIL: ${(e as Error).message}`);
+      return { ok: false, error: (e as Error).message };
+    }
   },
 });
