@@ -252,6 +252,7 @@ export const get = query({
           movedToRoomId: m.movedToRoomId,
           leftAt: m.leftAt ?? null,
           wantsToEnd: m.wantsToEnd ?? false,
+          typingUntil: m.typingUntil ?? null,
         })),
       ),
     };
@@ -280,7 +281,28 @@ export const send = mutation({
     const clean = text.trim().slice(0, 500);
     if (!clean) return;
     const messageId = await ctx.db.insert("roomMessages", { roomId, userId, text: clean, kind: "user" });
+    if (member.typingUntil !== undefined) await ctx.db.patch(member._id, { typingUntil: undefined });
     await ctx.scheduler.runAfter(0, internal.rooms.checkAttack, { messageId });
+  },
+});
+
+const TYPING_MS = 4000;
+
+// Typing indicator: "<name> is typing…" until typingUntil (the app compares it to the phone's clock).
+// Skips the write if the current indicator still has 2+ seconds left, so calling on every keystroke is cheap.
+export const setTyping = mutation({
+  args: { roomId: v.id("rooms"), userId: v.id("users") },
+  handler: async (ctx, { roomId, userId }) => {
+    const room = await ctx.db.get(roomId);
+    if (!room || room.status !== "live") throw new ConvexError("This room isn't live right now.");
+    const member = await ctx.db
+      .query("roomMembers")
+      .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", userId))
+      .unique();
+    if (!member || member.left) throw new ConvexError("You're not in this room.");
+    const now = Date.now();
+    if ((member.typingUntil ?? 0) - now > TYPING_MS / 2) return;
+    await ctx.db.patch(member._id, { typingUntil: now + TYPING_MS });
   },
 });
 
