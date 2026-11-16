@@ -9,7 +9,7 @@ import { TypingBubble } from "../../../src/components/TypingBubble";
 import { type RoomMessage, useLeaveRoom, useRoom, useRoomMessages, useSendMessage, useSetTyping, useVoteEnd } from "../../../src/data";
 import { formatCountdown, useNow } from "../../../src/date";
 import { errorMessage } from "../../../src/errors";
-import { useSavedUserId } from "../../../src/session";
+import { clearSavedRoomId, useSavedUserId } from "../../../src/session";
 import { card, colors, fonts, radius, spacing, type } from "../../../src/theme";
 
 const MAX = 500;
@@ -103,6 +103,7 @@ export default function GroupChat() {
     setLeaveError(null);
     try {
       await leave({ roomId: id, userId });
+      await clearSavedRoomId();
       router.replace({ pathname: "/home", params: { left: "1" } });
     } catch (e) {
       const message = errorMessage(e, "Couldn't leave the room. Try again.");

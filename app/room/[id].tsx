@@ -9,7 +9,7 @@ import { SeatTable } from "../../src/components/SeatTable";
 import { TopicPhoto } from "../../src/components/TopicPhoto";
 import { useLeaveRoom, usePingLobby, useRoom, useStartNow } from "../../src/data";
 import { errorMessage } from "../../src/errors";
-import { useSavedUserId } from "../../src/session";
+import { clearSavedRoomId, saveRoomId, useSavedUserId } from "../../src/session";
 import { card, colors, fonts, spacing, type } from "../../src/theme";
 
 // Same rules as convex/rooms.ts
@@ -72,7 +72,16 @@ export default function RoomLobby() {
     };
   }, [status, userId, id, ping, leave]);
 
+  // Remember this table while you're seated, so reopening the app comes back here
+  const amSeated = !!room?.members.some((m) => m.userId === userId);
+  useEffect(() => {
+    if (!status || !userId) return;
+    if ((status === "waiting" || status === "live") && amSeated) saveRoomId(id);
+    else clearSavedRoomId();
+  }, [status, amSeated, userId, id]);
+
   async function goBack() {
+    clearSavedRoomId();
     if (status === "waiting" && userId) await leave({ roomId: id, userId }).catch(() => {});
     if (router.canGoBack()) router.back();
     else router.replace("/home");
