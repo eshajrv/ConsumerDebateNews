@@ -151,6 +151,9 @@ export default defineSchema({
     positionAfter: v.optional(v.number()), // "Minds moved": where they stand after the chat, 0-100
     endPositionAI: v.optional(v.number()), // AI estimate of where they ended up, from their messages
     endReason: v.optional(v.string()), // one line on why the AI placed them there
+    livePosition: v.optional(v.number()), // AI estimate during the chat (latest check)
+    liveReason: v.optional(v.string()),
+    shiftNoted: v.optional(v.boolean()), // the judge already pointed out this person's shift
   })
     .index("by_room", ["roomId"])
     .index("by_user", ["userId"])
@@ -166,6 +169,7 @@ export default defineSchema({
       v.literal("nudge"),
       v.literal("flag"),
       v.literal("closing"),
+      v.literal("shift"), // judge noticed someone's view moving during the chat
     ),
     flagged: v.optional(v.boolean()), // personal-attack check
   }).index("by_room", ["roomId"]),

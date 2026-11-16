@@ -207,7 +207,7 @@ export function mindsMoved({ roomId }: { roomId: Id }): MindsMoved {
   const room = getRoom({ roomId });
   const members = (room?.members ?? []).map((m) => {
     const after = positionsAfter[`${roomId}:${m.userId}`] ?? null;
-    return { userId: m.userId, name: m.name, before: m.position, after, shift: after === null ? null : after - m.position, aiAfter: null, reason: null };
+    return { userId: m.userId, name: m.name, before: m.position, after, shift: after === null ? null : after - m.position, aiAfter: null, reason: null, live: null, liveReason: null };
   });
   const gap = (ps: number[]) => (ps.length ? Math.max(...ps) - Math.min(...ps) : 0);
   return {

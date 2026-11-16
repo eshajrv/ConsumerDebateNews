@@ -235,6 +235,10 @@ sections, these win.
      counts.
    - Results: "You moved N points toward <side or the middle>" or "You held
      your ground".
+   - During the chat (at minutes 3, 6 and 9) the judge estimates where each
+     person stands now (`roomMembers.livePosition`, `liveReason`). The first
+     time someone has moved 10+ points, it says so once, neutrally, and asks
+     what shifted ("Changing your mind or not, both are fine.").
 
 4. **Middle person rule.** A room starts only if it also has at least one
    member in band M (36-64); otherwise it rolls like any other failed start.

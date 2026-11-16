@@ -69,7 +69,7 @@ export type Room = {
   members: RoomMember[];
 };
 
-export type RoomMessageKind = "user" | "opener" | "nudge" | "flag" | "closing";
+export type RoomMessageKind = "user" | "opener" | "nudge" | "flag" | "closing" | "shift";
 
 export type RoomMessage = {
   _id: Id<"roomMessages">;
@@ -89,6 +89,8 @@ export type MindsMovedMember = {
   shift: number | null;
   aiAfter: number | null; // AI estimate, used when they skip the slider
   reason: string | null;
+  live: number | null; // the judge's latest estimate during the chat
+  liveReason: string | null;
 };
 
 export type MindsMoved = {

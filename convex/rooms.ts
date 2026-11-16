@@ -12,6 +12,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { ConvexError, v } from "convex/values";
+import { FunctionReturnType } from "convex/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { askClaude, extractJson } from "./lib/claude";
 import { notify } from "./notify";
@@ -308,6 +309,8 @@ export const live = query({
 });
 
 const FEATURED_WINDOW = 2 * MINUTE;
+// When the judge checks whether views are moving, as fractions of the chat (3, 6 and 9 min of 10)
+const SHIFT_CHECKS = [0.3, 0.6, 0.9];
 
 // rooms.featured: the live, watchable room with the most messages in the last 2 minutes.
 // Pass `now` from the client (queries don't read the clock); without it, the window ends at
@@ -370,6 +373,9 @@ export const checkStart = internalMutation({
       await ctx.db.patch(roomId, { status: "live", endsAt });
       await ctx.scheduler.runAfter(0, internal.rooms.writeOpener, { roomId });
       await ctx.scheduler.runAfter(NUDGE_MS, internal.rooms.nudge, { roomId });
+      for (const at of SHIFT_CHECKS) {
+        await ctx.scheduler.runAfter(Math.round(ROOM_MS * at), internal.rooms.trackShifts, { roomId });
+      }
       await ctx.scheduler.runAt(endsAt, internal.rooms.end, { roomId });
       return;
     }
@@ -387,7 +393,15 @@ export const checkStart = internalMutation({
       });
       movedCount.set(newRoomId, (movedCount.get(newRoomId) ?? 0) + 1);
       await ctx.db.patch(m._id, { movedToRoomId: newRoomId });
-      await notify(ctx, m.userId, `We moved you to ${formatTime(slotStart)}`, roomLink(newRoomId));
+      // Only tell people the first time their room rolls, not every slot after that
+      const arrivedByRoll = await ctx.db
+        .query("roomMembers")
+        .withIndex("by_user", (q) => q.eq("userId", m.userId))
+        .filter((q) => q.eq(q.field("movedToRoomId"), roomId))
+        .first();
+      if (!arrivedByRoll) {
+        await notify(ctx, m.userId, `We moved you to ${formatTime(slotStart)}`, roomLink(newRoomId));
+      }
     }
     const movedToRoomId = [...movedCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
     await ctx.db.patch(roomId, { status: "rolled", movedToRoomId });
@@ -588,6 +602,7 @@ export const endContext = internalQuery({
       })),
     );
     return {
+      status: room.status,
       date: topic.date,
       category: topic.category,
       question: topic.question,
@@ -614,12 +629,12 @@ export const setEndEstimates = internalMutation({
   },
 });
 
-export const estimateEndPositions = internalAction({
-  args: { roomId: v.id("rooms") },
-  handler: async (ctx, { roomId }) => {
-    const d = await ctx.runQuery(internal.rooms.endContext, { roomId });
-    if (!d || d.members.length === 0) return;
-    const prompt = `A group just discussed: "${d.question}"
+type EndContext = NonNullable<FunctionReturnType<typeof internal.rooms.endContext>>;
+
+// Asks the AI where each member stands now, from what they've written so far.
+// Returns null if the AI call fails.
+async function estimatePositions(d: EndContext, stage: "during" | "after") {
+  const prompt = `A group ${stage === "after" ? "just discussed" : "is in the middle of discussing"}: "${d.question}"
 0 = fully "${d.sideA}", 100 = fully "${d.sideB}".
 
 For each numbered person you get where they started and everything they wrote.
@@ -633,19 +648,77 @@ ${d.members
 
 Return ONLY JSON like {"1": {"position": 40, "reason": "..."}, "2": {...}} for persons ${d.members.map((_, i) => i + 1).join(", ")}.`;
 
-    let estimates: { userId: Id<"users">; position: number; reason: string }[];
-    try {
-      const r = extractJson<Record<string, { position: number; reason: string }>>(await askClaude(prompt, 600));
-      estimates = d.members.flatMap((m, i) => {
-        const e = r[String(i + 1)];
-        const n = Number(e?.position);
-        if (!Number.isFinite(n)) return [];
-        return [{ userId: m.userId, position: Math.max(0, Math.min(100, Math.round(n))), reason: String(e.reason ?? "").slice(0, 200) }];
-      });
-    } catch (e) {
-      console.log(`End-position estimate failed: ${(e as Error).message}`);
-      return;
+  try {
+    const r = extractJson<Record<string, { position: number; reason: string }>>(await askClaude(prompt, 600));
+    return d.members.flatMap((m, i) => {
+      const e = r[String(i + 1)];
+      const n = Number(e?.position);
+      if (!Number.isFinite(n)) return [];
+      return [{ userId: m.userId, position: Math.max(0, Math.min(100, Math.round(n))), reason: String(e.reason ?? "").slice(0, 200) }];
+    });
+  } catch (e) {
+    console.log(`Position estimate (${stage}) failed: ${(e as Error).message}`);
+    return null;
+  }
+}
+
+// During the chat: the judge quietly tracks where each person stands. When someone has
+// moved 10+ points from where they started, it says so once, neutrally, and asks what shifted.
+export const trackShifts = internalAction({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    const d = await ctx.runQuery(internal.rooms.endContext, { roomId });
+    if (!d || d.status !== "live" || d.members.length === 0) return;
+    if (d.members.every((m) => m.messages.length === 0)) return; // nothing said yet
+    const estimates = await estimatePositions(d, "during");
+    if (!estimates) return;
+    await ctx.runMutation(internal.rooms.setLiveEstimates, { roomId, estimates });
+  },
+});
+
+export const setLiveEstimates = internalMutation({
+  args: {
+    roomId: v.id("rooms"),
+    estimates: v.array(v.object({ userId: v.id("users"), position: v.number(), reason: v.string() })),
+  },
+  handler: async (ctx, { roomId, estimates }) => {
+    const room = await ctx.db.get(roomId);
+    if (!room || room.status !== "live") return;
+    const topic = await ctx.db.get(room.topicId);
+    const shifted: { name: string; toward: string }[] = [];
+    for (const e of estimates) {
+      const member = await ctx.db
+        .query("roomMembers")
+        .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", e.userId))
+        .unique();
+      if (!member) continue;
+      await ctx.db.patch(member._id, { livePosition: e.position, liveReason: e.reason });
+      if (member.shiftNoted || Math.abs(e.position - member.position) < MOVED) continue;
+      await ctx.db.patch(member._id, { shiftNoted: true });
+      const sameSide = (member.position - 50) * (e.position - 50) >= 0;
+      const toward =
+        sameSide && Math.abs(e.position - 50) < Math.abs(member.position - 50)
+          ? "the middle"
+          : `"${e.position < member.position ? topic?.sideA : topic?.sideB}"`;
+      shifted.push({ name: (await ctx.db.get(e.userId))?.name ?? "Someone", toward });
     }
+    if (shifted.length === 0) return;
+    const [first, ...rest] = shifted;
+    const text =
+      rest.length === 0
+        ? `I'm noticing ${first.name}'s view may have moved a little toward ${first.toward} since the start. ${first.name}, what shifted for you? (Changing your mind or not, both are fine.)`
+        : `A few views seem to be moving: ${shifted.map((s) => `${s.name} toward ${s.toward}`).join(", ")}. What shifted? (Changing your mind or not, both are fine.)`;
+    await ctx.db.insert("roomMessages", { roomId, text, kind: "shift" });
+  },
+});
+
+export const estimateEndPositions = internalAction({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    const d = await ctx.runQuery(internal.rooms.endContext, { roomId });
+    if (!d || d.members.length === 0) return;
+    const estimates = await estimatePositions(d, "after");
+    if (!estimates) return;
     await ctx.runMutation(internal.rooms.setEndEstimates, { roomId, estimates });
 
     // Save start and end to Supermemory. A slider answer wins: rooms.setPositionAfter saves
@@ -792,6 +865,8 @@ export const mindsMoved = query({
         shift: m.positionAfter === undefined ? null : m.positionAfter - m.position,
         aiAfter: m.endPositionAI ?? null, // AI estimate, used when they skip the slider
         reason: m.endReason ?? null,
+        live: m.livePosition ?? null, // the judge's latest estimate during the chat
+        liveReason: m.liveReason ?? null,
       })),
     );
     const gap = (ps: number[]) => (ps.length ? Math.max(...ps) - Math.min(...ps) : 0);
