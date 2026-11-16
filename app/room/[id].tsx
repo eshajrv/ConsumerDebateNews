@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../src/components/Button";
@@ -15,7 +15,7 @@ import { card, colors, fonts, spacing, type } from "../../src/theme";
 // Same rules as convex/rooms.ts
 const MIN_SEATS = { duo: 2, group: 3 };
 const MAX_SEATS = { duo: 2, group: 6 };
-const PING_MS = 15_000;
+const PING_MS = 5_000;
 
 export default function RoomLobby() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -61,8 +61,16 @@ export default function RoomLobby() {
     const keepSeat = () => ping({ roomId: id, userId }).catch(() => {});
     keepSeat();
     const timer = setInterval(keepSeat, PING_MS);
-    return () => clearInterval(timer);
-  }, [status, userId, id, ping]);
+    // On the web, closing the tab gives up the seat right away
+    const giveUpSeat = () => {
+      leave({ roomId: id, userId }).catch(() => {});
+    };
+    if (Platform.OS === "web") window.addEventListener("pagehide", giveUpSeat);
+    return () => {
+      clearInterval(timer);
+      if (Platform.OS === "web") window.removeEventListener("pagehide", giveUpSeat);
+    };
+  }, [status, userId, id, ping, leave]);
 
   async function goBack() {
     if (status === "waiting" && userId) await leave({ roomId: id, userId }).catch(() => {});

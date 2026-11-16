@@ -25,7 +25,7 @@ const FIRST_SLOT = 7 * 60; // 7:00 AM Pacific, in minutes after midnight
 const LAST_SLOT = 22 * 60; // 10:00 PM Pacific
 const MAX_MEMBERS = { duo: 2, group: 6 };
 const MIN_TO_START = { duo: 2, group: 3 };
-const STALE_MS = 45_000; // the lobby pings every 15s; a seat with no ping for this long is empty
+const STALE_MS = 15_000; // the lobby pings every 5s; a seat with no ping for this long is empty
 
 type Mode = "duo" | "group";
 export const modeValidator = v.union(v.literal("duo"), v.literal("group"));
