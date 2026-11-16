@@ -110,13 +110,18 @@ async function placeInRoom(
     allowSpectators: boolean;
     slotStart: number;
     mode: Mode;
+    excludeRoomId?: Id<"rooms">; // the table being rolled
   },
 ): Promise<Id<"rooms">> {
   const band = bandOf(args.position);
-  const rooms = await ctx.db
-    .query("rooms")
-    .withIndex("by_topic_and_slotStart", (q) => q.eq("topicId", args.topicId).eq("slotStart", args.slotStart))
-    .collect();
+  // Any table on this topic still waiting (whatever its slot), so friends who join across a
+  // slot boundary still end up together; a new table for args.slotStart only when none has space.
+  const rooms = (
+    await ctx.db
+      .query("rooms")
+      .withIndex("by_status_and_slotStart", (q) => q.eq("status", "waiting"))
+      .collect()
+  ).filter((r) => r.topicId === args.topicId && r._id !== args.excludeRoomId);
 
   // Rooms need a band-M member to start, so a band-M user first goes to a room with no M yet.
   // Otherwise: the room with the fewest people from the user's band, then the emptier room.
@@ -176,11 +181,11 @@ export const next = query({
     const slot = nextSlot(now);
     const rooms = await ctx.db
       .query("rooms")
-      .withIndex("by_topic_and_slotStart", (q) => q.eq("topicId", topicId).eq("slotStart", slot))
+      .withIndex("by_status_and_slotStart", (q) => q.eq("status", "waiting"))
       .collect();
     let joinedCount = 0;
     for (const room of rooms) {
-      if (room.status === "waiting" && modeOf(room) === (mode ?? "group")) {
+      if (room.topicId === topicId && modeOf(room) === (mode ?? "group")) {
         joinedCount += (await activeMembers(ctx, room._id)).length;
       }
     }
@@ -508,6 +513,7 @@ export const checkStart = internalMutation({
         allowSpectators: m.allowSpectators,
         slotStart,
         mode,
+        excludeRoomId: roomId,
       });
       movedCount.set(newRoomId, (movedCount.get(newRoomId) ?? 0) + 1);
       await ctx.db.patch(m._id, { movedToRoomId: newRoomId });
