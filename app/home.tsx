@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -7,6 +7,7 @@ import { Button } from "../src/components/Button";
 import { Eye } from "../src/components/Eye";
 import { ProfileButton } from "../src/components/ProfileButton";
 import { SplitBar } from "../src/components/SplitBar";
+import { Toast } from "../src/components/Toast";
 import { Trophy } from "../src/components/Trophy";
 import { type Topic, useFeed, useNextRoom, useNotifications, useTopicStats, useUser } from "../src/data";
 import { pacificDate } from "../src/date";
@@ -52,6 +53,7 @@ function TopicCard({ topic }: { topic: Topic }) {
 }
 
 export default function Home() {
+  const { left } = useLocalSearchParams<{ left?: string }>();
   const userId = useSavedUserId();
   const user = useUser(userId);
   const topics = useFeed(userId, pacificDate());
@@ -90,6 +92,7 @@ export default function Home() {
           <Text style={styles.muted}>Start over</Text>
         </Pressable>
       </ScrollView>
+      {left && <Toast message="You left the room. -10 points" />}
     </SafeAreaView>
   );
 }

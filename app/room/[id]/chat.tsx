@@ -1,12 +1,14 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { type RoomMessage, useRoom, useRoomMessages, useSendMessage } from "../../../src/data";
+import { Button } from "../../../src/components/Button";
+import { type RoomMessage, useLeaveRoom, useRoom, useRoomMessages, useSendMessage } from "../../../src/data";
 import { formatCountdown, useNow } from "../../../src/date";
+import { errorMessage } from "../../../src/errors";
 import { useSavedUserId } from "../../../src/session";
-import { colors, fonts, positionColor, radius, spacing, type } from "../../../src/theme";
+import { card, colors, fonts, positionColor, radius, spacing, type } from "../../../src/theme";
 
 const MAX = 500;
 
@@ -16,14 +18,19 @@ export default function GroupChat() {
   const room = useRoom(id);
   const messages = useRoomMessages(id);
   const send = useSendMessage();
+  const leave = useLeaveRoom();
   const now = useNow();
   const list = useRef<FlatList<RoomMessage>>(null);
   const [text, setText] = useState("");
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
 
   const status = room?.status;
   useEffect(() => {
+    if (leaving) return;
     if (status === "summarizing" || status === "done") router.replace(`/room/${id}/stand`);
-  }, [status, id]);
+  }, [status, id, leaving]);
 
   if (!room || !messages) {
     return (
@@ -45,6 +52,30 @@ export default function GroupChat() {
     await send({ roomId: id, userId, text: clean });
   }
 
+  async function leaveRoom() {
+    if (!userId || !room) return;
+    setLeaving(true);
+    setLeaveError(null);
+    try {
+      await leave({ roomId: id, userId });
+      router.replace({ pathname: "/home", params: { left: "1" } });
+    } catch (e) {
+      const message = errorMessage(e, "Couldn't leave the room. Try again.");
+      if (room.status !== "live" || message.includes("while the chat is live")) {
+        router.replace(`/room/${id}/results`);
+        return;
+      }
+      setLeaving(false);
+      setLeaveError(message);
+    }
+  }
+
+  function closeLeave() {
+    if (leaving) return;
+    setConfirmLeave(false);
+    setLeaveError(null);
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -54,7 +85,17 @@ export default function GroupChat() {
               <View key={m.userId} style={[styles.headerDot, { backgroundColor: positionColor(m.position) }, m.userId === userId && styles.youRing]} />
             ))}
           </View>
-          <Text style={[styles.timer, remaining <= 120_000 && { color: colors.sideA }]}>{formatCountdown(remaining)}</Text>
+          <View style={styles.headerRight}>
+            <Text style={[styles.timer, remaining <= 120_000 && { color: colors.sideA }]}>{formatCountdown(remaining)}</Text>
+            <Pressable
+              onPress={() => setConfirmLeave(true)}
+              hitSlop={8}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.leave, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.leaveText}>Leave</Text>
+            </Pressable>
+          </View>
         </View>
 
         {opener && (
@@ -120,6 +161,30 @@ export default function GroupChat() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <Modal visible={confirmLeave} transparent animationType="fade" onRequestClose={closeLeave}>
+        <View style={styles.backdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeLeave} />
+          <View style={styles.modal}>
+            <Text style={type.title}>Leave this room?</Text>
+            <Text style={styles.modalBody}>
+              {"If you leave now you'll lose 10 points and 5 good-faith points, and you won't get a summary or results for this room."}
+            </Text>
+            {leaveError && <Text style={styles.modalError}>{leaveError}</Text>}
+            <View style={styles.modalActions}>
+              <Button title="Stay and talk" onPress={closeLeave} disabled={leaving} />
+              <Pressable
+                onPress={leaveRoom}
+                disabled={leaving}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.secondary, pressed && { opacity: 0.7 }]}
+              >
+                {leaving ? <ActivityIndicator color={colors.muted} /> : <Text style={styles.secondaryText}>Leave room</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -132,6 +197,9 @@ const styles = StyleSheet.create({
   dots: { flexDirection: "row", gap: 6 },
   headerDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: colors.background },
   youRing: { borderColor: colors.accent, borderWidth: 2 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  leave: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingVertical: spacing.xs, paddingHorizontal: spacing.md - 4 },
+  leaveText: { fontSize: 13, fontFamily: fonts.semibold, color: colors.muted },
   timer: { fontSize: 20, fontFamily: fonts.bold, color: colors.text, fontVariant: ["tabular-nums"] },
   pinned: { marginHorizontal: spacing.screen, padding: spacing.md, borderRadius: radius.card, backgroundColor: colors.surface, gap: spacing.xs },
   pinnedText: { fontSize: 16, fontFamily: fonts.semibold, lineHeight: 22, color: colors.text },
@@ -156,6 +224,13 @@ const styles = StyleSheet.create({
   send: { backgroundColor: colors.accent, borderRadius: radius.card, paddingHorizontal: spacing.md + 2, height: 46, justifyContent: "center" },
   sendOff: { opacity: 0.4 },
   sendText: { color: colors.onAccent, fontSize: 16, fontFamily: fonts.bold },
+  backdrop: { flex: 1, justifyContent: "center", padding: spacing.lg, backgroundColor: "rgba(29,42,36,0.45)" },
+  modal: { ...card, gap: spacing.md },
+  modalBody: { ...type.body, color: colors.muted },
+  modalError: { fontSize: 14, fontFamily: fonts.medium, color: colors.error },
+  modalActions: { gap: spacing.sm, marginTop: spacing.sm },
+  secondary: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, minHeight: 56, alignItems: "center", justifyContent: "center" },
+  secondaryText: { fontSize: 17, fontFamily: fonts.semibold, color: colors.muted },
 });
 
 export { RoomErrorBoundary as ErrorBoundary } from "../../../src/components/RoomErrorBoundary";

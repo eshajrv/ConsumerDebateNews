@@ -46,6 +46,7 @@ export const api = {
     featured: query<{ topicId?: Id; now?: number }, FeaturedRoom | null>("rooms:featured"),
     setPositionAfter: mutation<{ roomId: Id; userId: Id; position: number }, null>("rooms:setPositionAfter"),
     mindsMoved: query<{ roomId: Id }, MindsMoved>("rooms:mindsMoved"),
+    leave: mutation<{ roomId: Id; userId: Id }, null>("rooms:leave"),
   },
   summaries: {
     forRoom: query<{ roomId: Id; userId: Id }, RoomSummaries | null>("summaries:forRoom"),
