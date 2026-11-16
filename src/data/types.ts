@@ -72,7 +72,7 @@ export type Room = {
   members: RoomMember[];
 };
 
-export type RoomMessageKind = "user" | "opener" | "nudge" | "flag" | "closing" | "shift";
+export type RoomMessageKind = "user" | "opener" | "nudge" | "flag" | "closing" | "left" | "shift";
 
 export type RoomMessage = {
   _id: Id<"roomMessages">;
