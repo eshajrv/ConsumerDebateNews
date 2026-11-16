@@ -6,7 +6,7 @@ import { BackButton } from "../src/components/BackButton";
 import { Chip } from "../src/components/Chip";
 import { type LeaderboardPeriod, useLeaderboard, useMyRank, useUser } from "../src/data";
 import { useSavedUserId } from "../src/session";
-import { card, colors, spacing, type } from "../src/theme";
+import { card, colors, fonts, spacing, type } from "../src/theme";
 
 const PERIODS: { value: LeaderboardPeriod; label: string }[] = [
   { value: "today", label: "Today" },
@@ -50,7 +50,7 @@ export default function Leaderboard() {
         {top === undefined ? (
           <ActivityIndicator color={colors.accent} />
         ) : top.length === 0 ? (
-          <Text style={styles.empty}>No points yet. Join a room to get on the board.</Text>
+          <Text style={styles.empty}>No points yet. Pull up a chair at a table to get on the board.</Text>
         ) : (
           <View style={[card, styles.card]}>
             {top.map((e) => (
@@ -78,10 +78,10 @@ const styles = StyleSheet.create({
   card: { paddingVertical: spacing.sm, paddingHorizontal: spacing.sm },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md, borderRadius: 12 },
   mineRow: { backgroundColor: colors.accentSoft },
-  rank: { width: 28, fontSize: 16, fontWeight: "700", color: colors.muted, fontVariant: ["tabular-nums"] },
-  name: { flex: 1, fontSize: 16, fontWeight: "600", color: colors.text },
-  points: { fontSize: 16, fontWeight: "700", color: colors.text, fontVariant: ["tabular-nums"] },
+  rank: { width: 28, fontSize: 16, fontFamily: fonts.bold, color: colors.muted, fontVariant: ["tabular-nums"] },
+  name: { flex: 1, fontSize: 16, fontFamily: fonts.semibold, color: colors.text },
+  points: { fontSize: 16, fontFamily: fonts.bold, color: colors.text, fontVariant: ["tabular-nums"] },
   mineText: { color: colors.accent },
-  empty: { fontSize: 16, color: colors.muted, textAlign: "center" },
+  empty: { fontSize: 16, fontFamily: fonts.regular, color: colors.muted, textAlign: "center" },
   pinned: { paddingHorizontal: spacing.screen, paddingVertical: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background },
 });

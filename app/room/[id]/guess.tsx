@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../../../src/components/Button";
 import { type GuessPick, useGuessSummary, useRateSummary, useRoomSummaries } from "../../../src/data";
 import { useSavedUserId } from "../../../src/session";
-import { card, colors, radius, spacing, type } from "../../../src/theme";
+import { card, colors, fonts, radius, spacing, type } from "../../../src/theme";
 
 type FlipCardProps = {
   letter: string;
@@ -85,7 +85,7 @@ export default function GuessAndRate() {
   if (!data || !userId) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
-        {data === null ? <Text style={type.body}>Room not found.</Text> : <ActivityIndicator color={colors.accent} />}
+        {data === null ? <Text style={type.body}>Table not found.</Text> : <ActivityIndicator color={colors.accent} />}
       </SafeAreaView>
     );
   }
@@ -130,7 +130,7 @@ export default function GuessAndRate() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={type.label}>Here&apos;s what they heard</Text>
         <Text style={type.question}>Which one did a person write?</Text>
-        <Text style={styles.muted}>Both describe your view. One is from someone in your room, one is from the AI.</Text>
+        <Text style={styles.muted}>Both describe your view. One is from someone at your table, one is from the AI.</Text>
 
         {(["first", "second"] as const).map((which, i) => (
           <FlipCard
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   center: { alignItems: "center", justifyContent: "center", gap: spacing.md },
   padded: { padding: spacing.screen },
   content: { padding: spacing.screen, gap: spacing.lg },
-  muted: { fontSize: 16, lineHeight: 22, color: colors.muted },
+  muted: { fontSize: 16, fontFamily: fonts.regular, lineHeight: 22, color: colors.muted },
   face: { gap: spacing.md, padding: spacing.md + 4, borderWidth: 2, backfaceVisibility: "hidden" },
   back: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   picked: { borderColor: colors.accent },
@@ -207,20 +207,20 @@ const styles = StyleSheet.create({
   ai: { backgroundColor: colors.surface, borderColor: colors.border },
   faceHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm, height: 36 },
   badge: { height: 36, minWidth: 36, paddingHorizontal: spacing.md, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
-  badgeText: { fontSize: 18, fontWeight: "800", letterSpacing: 1 },
+  badgeText: { fontSize: 18, fontFamily: fonts.bold, letterSpacing: 1 },
   letterBadge: { paddingHorizontal: 0, backgroundColor: colors.surface },
   letterBadgePicked: { backgroundColor: colors.accent },
   letterBadgeText: { color: colors.text, letterSpacing: 0 },
   humanBadge: { backgroundColor: colors.accent },
   aiBadge: { backgroundColor: colors.muted },
-  byline: { flex: 1, fontSize: 16, fontWeight: "700", color: colors.muted },
-  verdict: { fontSize: 18, fontWeight: "700", color: colors.accent, textAlign: "center" },
+  byline: { flex: 1, fontSize: 16, fontFamily: fonts.bold, color: colors.muted },
+  verdict: { fontSize: 18, fontFamily: fonts.bold, color: colors.accent, textAlign: "center" },
   rateBlock: { alignItems: "center", gap: spacing.sm },
   stars: { flexDirection: "row", gap: spacing.sm },
-  star: { fontSize: 40, color: colors.border },
+  star: { fontSize: 40, fontFamily: fonts.regular, color: colors.border },
   starOn: { color: colors.accent },
   agreement: { padding: spacing.md, borderRadius: radius.card, backgroundColor: colors.surface, gap: spacing.xs },
-  agreementText: { fontSize: 16, lineHeight: 22, color: colors.text, fontStyle: "italic" },
+  agreementText: { fontSize: 16, fontFamily: fonts.regular, lineHeight: 22, color: colors.text, fontStyle: "italic" },
   footer: { padding: spacing.screen, paddingTop: spacing.sm },
 });
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { colors, positionColor, radius, spacing } from "../theme";
+import { colors, fonts, positionColor, radius, spacing } from "../theme";
 
 type Props = { value: number; sideA: string; sideB: string; onChange: (v: number) => void; onRelease: (v: number) => void };
 
@@ -60,6 +60,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   labels: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md },
-  label: { fontSize: 15, fontWeight: "700", flexShrink: 1 },
+  label: { fontSize: 15, fontFamily: fonts.bold, flexShrink: 1 },
   right: { textAlign: "right" },
 });

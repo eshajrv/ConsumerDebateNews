@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { colors } from "../theme";
+import { colors, fonts } from "../theme";
 
 export function Bell({ count, onPress }: { count: number; onPress: () => void }) {
   return (
@@ -34,5 +34,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  badgeText: { color: colors.onAccent, fontSize: 11, fontWeight: "700" },
+  badgeText: { color: colors.onAccent, fontSize: 11, fontFamily: fonts.bold },
 });

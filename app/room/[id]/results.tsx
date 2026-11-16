@@ -7,7 +7,7 @@ import { Button } from "../../../src/components/Button";
 import { MovementScale } from "../../../src/components/MovementScale";
 import { useMindsMoved, useMyRank, useRoom, useRoomSummaries, useUser } from "../../../src/data";
 import { useSavedUserId } from "../../../src/session";
-import { card, colors, radius, spacing, type } from "../../../src/theme";
+import { card, colors, fonts, radius, spacing, type } from "../../../src/theme";
 
 // "You moved 12 points toward <side>" / "toward the middle" / "You held your ground"
 function movedLine(before: number, after: number, sideA: string, sideB: string): string {
@@ -85,7 +85,7 @@ export default function Results() {
   if (!data || !userId || !user) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
-        {data === null ? <Text style={type.body}>Room not found.</Text> : <ActivityIndicator color={colors.accent} />}
+        {data === null ? <Text style={type.body}>Table not found.</Text> : <ActivityIndicator color={colors.accent} />}
       </SafeAreaView>
     );
   }
@@ -174,26 +174,26 @@ const styles = StyleSheet.create({
   padded: { padding: spacing.screen },
   content: { padding: spacing.screen, gap: spacing.lg },
   hero: { alignItems: "center", gap: spacing.xs, paddingVertical: spacing.md },
-  points: { fontSize: 72, fontWeight: "800", color: colors.accent, fontVariant: ["tabular-nums"] },
-  muted: { fontSize: 16, color: colors.muted, textAlign: "center" },
-  total: { fontSize: 15, fontWeight: "700", color: colors.text, marginTop: spacing.xs },
+  points: { fontSize: 72, fontFamily: fonts.bold, color: colors.accent, fontVariant: ["tabular-nums"] },
+  muted: { fontSize: 16, fontFamily: fonts.regular, color: colors.muted, textAlign: "center" },
+  total: { fontSize: 15, fontFamily: fonts.bold, color: colors.text, marginTop: spacing.xs },
   breakdown: { gap: spacing.sm },
-  movedText: { fontSize: 20, fontWeight: "700", color: colors.text },
+  movedText: { fontSize: 20, fontFamily: fonts.bold, color: colors.text },
   mindsCount: { alignItems: "center", marginTop: spacing.sm },
-  mindsCountValue: { fontSize: 56, fontWeight: "800", color: colors.accent, fontVariant: ["tabular-nums"] },
-  legend: { fontSize: 13, color: colors.muted, textAlign: "center" },
+  mindsCountValue: { fontSize: 56, fontFamily: fonts.bold, color: colors.accent, fontVariant: ["tabular-nums"] },
+  legend: { fontSize: 13, fontFamily: fonts.regular, color: colors.muted, textAlign: "center" },
   row: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md },
   rowLabel: { ...type.body, flex: 1 },
-  rowValue: { ...type.body, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  rowValue: { ...type.body, fontFamily: fonts.bold, fontVariant: ["tabular-nums"] },
   divider: { height: 1, backgroundColor: colors.border },
   stats: { flexDirection: "row", gap: spacing.sm },
   stat: { flex: 1, paddingVertical: spacing.md, paddingHorizontal: spacing.sm, gap: spacing.xs, alignItems: "center" },
   deltaPill: { borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 },
   statLabel: { textAlign: "center" },
-  statValue: { fontSize: 22, fontWeight: "800", color: colors.text },
-  delta: { fontSize: 14, fontWeight: "700" },
+  statValue: { fontSize: 22, fontFamily: fonts.bold, color: colors.text },
+  delta: { fontSize: 14, fontFamily: fonts.bold },
   insight: { backgroundColor: colors.accentSoft, borderRadius: radius.card, padding: spacing.lg, gap: spacing.xs },
-  insightText: { fontSize: 18, lineHeight: 24, fontWeight: "600", color: colors.text },
+  insightText: { fontSize: 18, fontFamily: fonts.semibold, lineHeight: 24, color: colors.text },
   footer: { padding: spacing.screen, paddingTop: spacing.sm },
 });
 

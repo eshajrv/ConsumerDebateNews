@@ -2,7 +2,7 @@ import { type ErrorBoundaryProps, router } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors, spacing, type } from "../theme";
+import { colors, fonts, spacing, type } from "../theme";
 import { Button } from "./Button";
 
 // Shown instead of a red screen when a room query fails (for example a link to a room that doesn't exist).
@@ -10,7 +10,7 @@ export function RoomErrorBoundary({ retry }: ErrorBoundaryProps) {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.body}>
-        <Text style={type.title}>We couldn&apos;t open this room.</Text>
+        <Text style={type.title}>We couldn&apos;t open this table.</Text>
         <Text style={styles.muted} onPress={retry}>
           Tap to try again
         </Text>
@@ -25,6 +25,6 @@ export function RoomErrorBoundary({ retry }: ErrorBoundaryProps) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   body: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.md, padding: spacing.screen },
-  muted: { fontSize: 16, color: colors.accent, fontWeight: "600" },
+  muted: { fontSize: 16, fontFamily: fonts.semibold, color: colors.accent },
   footer: { padding: spacing.screen },
 });

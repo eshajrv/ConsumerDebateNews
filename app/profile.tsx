@@ -8,7 +8,7 @@ import { Button } from "../src/components/Button";
 import { Chip } from "../src/components/Chip";
 import { useMyRank, useUser } from "../src/data";
 import { useSavedUserId } from "../src/session";
-import { card, colors, radius, spacing, type } from "../src/theme";
+import { card, colors, fonts, radius, spacing, type } from "../src/theme";
 
 function Stat({ emoji, label, value, unit, note, children }: { emoji: string; label: string; value: number; unit: string; note: string; children?: ReactNode }) {
   return (
@@ -104,7 +104,7 @@ export default function Profile() {
           {user.insight ? (
             <Text style={styles.insightText}>{user.insight}</Text>
           ) : (
-            <Text style={styles.muted}>Join a room to start building your profile.</Text>
+            <Text style={styles.muted}>Pull up a chair at a table to start building your profile.</Text>
           )}
         </View>
 
@@ -122,7 +122,7 @@ export default function Profile() {
         </View>
 
         <View style={[card, styles.section]}>
-          <Text style={type.label}>How Practify reaches you</Text>
+          <Text style={type.label}>How speak-easy reaches you</Text>
           <Text style={type.body}>{user.notifyVia === "text" ? "By text" : "In the app"}</Text>
         </View>
       </ScrollView>
@@ -150,19 +150,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.sm,
   },
-  initial: { fontSize: 42, fontWeight: "800", color: colors.onAccent },
+  initial: { fontSize: 42, fontFamily: fonts.bold, color: colors.onAccent },
   stats: { flexDirection: "row", gap: spacing.sm },
   stat: { flex: 1, paddingVertical: spacing.md, paddingHorizontal: spacing.sm + 4, gap: spacing.xs },
-  statValue: { fontSize: 28, lineHeight: 34, fontWeight: "800", color: colors.text, fontVariant: ["tabular-nums"] },
-  statUnit: { fontSize: 14, fontWeight: "700", color: colors.muted },
-  statNote: { fontSize: 12, lineHeight: 16, color: colors.muted },
+  statValue: { fontSize: 28, fontFamily: fonts.bold, lineHeight: 34, color: colors.text, fontVariant: ["tabular-nums"] },
+  statUnit: { fontSize: 14, fontFamily: fonts.bold, color: colors.muted },
+  statNote: { fontSize: 12, fontFamily: fonts.regular, lineHeight: 16, color: colors.muted },
   track: { height: 4, borderRadius: radius.pill, backgroundColor: colors.accentSoft, overflow: "hidden" },
   fill: { height: 4, borderRadius: radius.pill, backgroundColor: colors.accent },
   insight: { backgroundColor: colors.accentSoft, borderRadius: radius.card, padding: spacing.lg, gap: spacing.xs },
   accentLabel: { color: colors.accent },
-  insightText: { fontSize: 18, lineHeight: 24, fontWeight: "600", color: colors.text },
+  insightText: { fontSize: 18, fontFamily: fonts.semibold, lineHeight: 24, color: colors.text },
   section: { gap: spacing.sm },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  muted: { fontSize: 16, lineHeight: 22, color: colors.muted },
+  muted: { fontSize: 16, fontFamily: fonts.regular, lineHeight: 22, color: colors.muted },
   footer: { padding: spacing.screen, paddingTop: spacing.sm },
 });

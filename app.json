@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Practify",
+    "name": "speak-easy",
     "slug": "practify",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -24,7 +24,8 @@
     "scheme": "practify",
     "plugins": [
       "expo-router",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

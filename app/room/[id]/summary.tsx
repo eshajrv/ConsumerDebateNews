@@ -8,7 +8,7 @@ import { MiniScale } from "../../../src/components/MiniScale";
 import { useRoom, useRoomSummaries, useSubmitSummary } from "../../../src/data";
 import { errorMessage } from "../../../src/errors";
 import { useSavedUserId } from "../../../src/session";
-import { card, colors, radius, spacing, type } from "../../../src/theme";
+import { card, colors, fonts, radius, spacing, type } from "../../../src/theme";
 
 const MAX = 300;
 
@@ -41,7 +41,7 @@ export default function HeresWhatIHeard() {
   if (!room || !summaries || !userId || next) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
-        {room === null || data === null ? <Text style={type.body}>Room not found.</Text> : <ActivityIndicator color={colors.accent} />}
+        {room === null || data === null ? <Text style={type.body}>Table not found.</Text> : <ActivityIndicator color={colors.accent} />}
       </SafeAreaView>
     );
   }
@@ -139,9 +139,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     textAlignVertical: "top",
   },
-  count: { position: "absolute", right: spacing.md, bottom: spacing.sm, fontSize: 12, color: colors.muted },
-  muted: { fontSize: 16, lineHeight: 22, color: colors.muted, textAlign: "center" },
-  error: { fontSize: 14, color: colors.error },
+  count: { position: "absolute", right: spacing.md, bottom: spacing.sm, fontSize: 12, fontFamily: fonts.regular, color: colors.muted },
+  muted: { fontSize: 16, fontFamily: fonts.regular, lineHeight: 22, color: colors.muted, textAlign: "center" },
+  error: { fontSize: 14, fontFamily: fonts.regular, color: colors.error },
   footer: { padding: spacing.screen, paddingTop: spacing.sm },
 });
 

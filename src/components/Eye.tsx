@@ -4,7 +4,7 @@ import { colors } from "../theme";
 
 export function Eye({ onPress }: { onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} hitSlop={12} accessibilityRole="button" accessibilityLabel="Watch live" style={styles.wrap}>
+    <Pressable onPress={onPress} hitSlop={12} accessibilityRole="button" accessibilityLabel="At the bar" style={styles.wrap}>
       <View style={styles.lid}>
         <View style={styles.pupil} />
       </View>

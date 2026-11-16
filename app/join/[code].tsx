@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../src/components/Button";
 import { useJoinWithCode } from "../../src/join";
-import { colors, spacing, type } from "../../src/theme";
+import { colors, fonts, spacing, type } from "../../src/theme";
 
 export default function JoinWithLink() {
   const { code } = useLocalSearchParams<{ code: string }>();
@@ -24,13 +24,13 @@ export default function JoinWithLink() {
         ) : (
           <>
             <ActivityIndicator color={colors.accent} />
-            <Text style={styles.muted}>Joining your room...</Text>
+            <Text style={styles.muted}>Finding your table...</Text>
           </>
         )}
       </View>
       {error && (
         <View style={styles.footer}>
-          <Button title="Enter the code" onPress={() => router.replace("/join")} />
+          <Button title="Enter the password" onPress={() => router.replace("/join")} />
         </View>
       )}
     </SafeAreaView>
@@ -41,6 +41,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   body: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.screen, gap: spacing.md },
   center: { textAlign: "center" },
-  muted: { fontSize: 16, color: colors.muted, textAlign: "center" },
+  muted: { fontSize: 16, fontFamily: fonts.regular, color: colors.muted, textAlign: "center" },
   footer: { padding: spacing.screen },
 });

@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text } from "react-native";
 
-import { colors, radius } from "../theme";
+import { colors, fonts, radius } from "../theme";
 
 export function ProfileButton({ name, onPress }: { name?: string; onPress: () => void }) {
   return (
@@ -12,5 +12,5 @@ export function ProfileButton({ name, onPress }: { name?: string; onPress: () =>
 
 const styles = StyleSheet.create({
   wrap: { width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
-  initial: { fontSize: 15, fontWeight: "800", color: colors.onAccent },
+  initial: { fontSize: 15, fontFamily: fonts.bold, color: colors.onAccent },
 });

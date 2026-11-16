@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 import type { MindsMovedMember } from "../data";
-import { colors, positionColor, spacing } from "../theme";
+import { colors, fonts, positionColor, spacing } from "../theme";
 import { ScaleTrack } from "./MiniScale";
 
 const START_MS = 600;
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   dot: { width: DOT, height: DOT, borderRadius: DOT / 2, borderWidth: 3, borderColor: colors.background },
   before: { backgroundColor: colors.background, borderWidth: 2, opacity: 0.7 },
   you: { borderColor: colors.accent },
-  name: { fontSize: 12, fontWeight: "600", color: colors.text, marginTop: 2 },
+  name: { fontSize: 12, fontFamily: fonts.semibold, color: colors.text, marginTop: 2 },
   ends: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md, marginHorizontal: -spacing.lg },
-  end: { fontSize: 13, fontWeight: "700", flexShrink: 1 },
+  end: { fontSize: 13, fontFamily: fonts.bold, flexShrink: 1 },
 });

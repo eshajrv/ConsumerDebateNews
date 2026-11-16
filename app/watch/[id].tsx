@@ -7,7 +7,7 @@ import { BackButton } from "../../src/components/BackButton";
 import { Button } from "../../src/components/Button";
 import { type RoomMessage, useRoom, useRoomMessages } from "../../src/data";
 import { formatCountdown, useNow } from "../../src/date";
-import { colors, positionColor, radius, spacing, type } from "../../src/theme";
+import { colors, fonts, positionColor, radius, spacing, type } from "../../src/theme";
 
 const REACTIONS = ["Good point", "Interesting", "Made me think"] as const;
 
@@ -67,7 +67,7 @@ function Ended({ text }: { text: string }) {
         <Text style={type.title}>{text}</Text>
       </View>
       <View style={styles.footer}>
-        <Button title="See other live rooms" onPress={() => router.replace("/watch")} />
+        <Button title="See other live tables" onPress={() => router.replace("/watch")} />
       </View>
     </SafeAreaView>
   );
@@ -80,7 +80,7 @@ export default function WatchRoom() {
   const now = useNow();
   const list = useRef<FlatList<RoomMessage>>(null);
 
-  if (room === null) return <Ended text="Room not found." />;
+  if (room === null) return <Ended text="Table not found." />;
   if (!room || !messages) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
@@ -88,8 +88,8 @@ export default function WatchRoom() {
       </SafeAreaView>
     );
   }
-  if (room.allowSpectators === false) return <Ended text="This room is private." />;
-  if (room.status !== "live") return <Ended text={room.status === "waiting" || room.status === "rolled" ? "This room hasn't started yet." : "This room has ended."} />;
+  if (room.allowSpectators === false) return <Ended text="This table is private." />;
+  if (room.status !== "live") return <Ended text={room.status === "waiting" || room.status === "rolled" ? "This table hasn't started yet." : "This table has wrapped up."} />;
 
   const remaining = (room.endsAt ?? now) - now;
   const opener = messages.find((m) => m.kind === "opener");
@@ -102,7 +102,7 @@ export default function WatchRoom() {
         <BackButton />
         <View style={styles.watching}>
           <View style={styles.liveDot} />
-          <Text style={styles.watchingText}>Watching</Text>
+          <Text style={styles.watchingText}>At the bar</Text>
         </View>
         <Text style={[styles.timer, remaining <= 120_000 && { color: colors.sideA }]}>{formatCountdown(remaining)}</Text>
       </View>
@@ -111,7 +111,7 @@ export default function WatchRoom() {
 
       {opener && (
         <View style={styles.pinned}>
-          <Text style={styles.judgeName}>Judge</Text>
+          <Text style={styles.judgeName}>The host</Text>
           <Text style={styles.pinnedText}>{opener.text}</Text>
         </View>
       )}
@@ -127,7 +127,7 @@ export default function WatchRoom() {
           if (item.kind !== "user") {
             return (
               <View style={styles.judge}>
-                <Text style={styles.judgeName}>Judge</Text>
+                <Text style={styles.judgeName}>The host</Text>
                 <Text style={styles.judgeText}>{item.text}</Text>
               </View>
             );
@@ -162,27 +162,27 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.screen, paddingVertical: spacing.sm },
   watching: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.sideA },
-  watchingText: { fontSize: 14, fontWeight: "700", color: colors.sideA },
-  timer: { fontSize: 20, fontWeight: "800", color: colors.text, fontVariant: ["tabular-nums"] },
-  question: { fontSize: 18, lineHeight: 24, fontWeight: "700", color: colors.text, paddingHorizontal: spacing.screen, paddingBottom: spacing.sm },
+  watchingText: { fontSize: 14, fontFamily: fonts.bold, color: colors.sideA },
+  timer: { fontSize: 20, fontFamily: fonts.bold, color: colors.text, fontVariant: ["tabular-nums"] },
+  question: { fontSize: 18, fontFamily: fonts.display, lineHeight: 24, color: colors.text, paddingHorizontal: spacing.screen, paddingBottom: spacing.sm },
   pinned: { marginHorizontal: spacing.screen, padding: spacing.md, borderRadius: radius.card, backgroundColor: colors.surface, gap: spacing.xs },
-  pinnedText: { fontSize: 16, lineHeight: 22, color: colors.text, fontWeight: "600" },
+  pinnedText: { fontSize: 16, fontFamily: fonts.semibold, lineHeight: 22, color: colors.text },
   messages: { padding: spacing.screen, gap: spacing.md },
-  empty: { fontSize: 15, color: colors.muted, textAlign: "center" },
+  empty: { fontSize: 15, fontFamily: fonts.regular, color: colors.muted, textAlign: "center" },
   judge: { alignSelf: "center", maxWidth: "85%", alignItems: "center", gap: 2, paddingVertical: spacing.xs },
-  judgeName: { fontSize: 12, fontWeight: "700", color: colors.muted, letterSpacing: 0.5, textTransform: "uppercase" },
-  judgeText: { fontSize: 15, lineHeight: 21, color: colors.muted, textAlign: "center", fontStyle: "italic" },
+  judgeName: { fontSize: 12, fontFamily: fonts.bold, color: colors.muted, letterSpacing: 0.5, textTransform: "uppercase" },
+  judgeText: { fontSize: 15, fontFamily: fonts.regular, lineHeight: 21, color: colors.muted, textAlign: "center", fontStyle: "italic" },
   row: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm },
   dot: { width: 12, height: 12, borderRadius: 6, marginBottom: 6 },
   bubble: { maxWidth: "82%", borderRadius: radius.card, borderBottomLeftRadius: 4, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md, gap: 2, backgroundColor: colors.surface },
   flagged: { borderWidth: 1, borderColor: colors.sideA },
-  sender: { fontSize: 12, fontWeight: "700", color: colors.muted },
-  msgText: { fontSize: 16, lineHeight: 22, color: colors.text },
+  sender: { fontSize: 12, fontFamily: fonts.bold, color: colors.muted },
+  msgText: { fontSize: 16, fontFamily: fonts.regular, lineHeight: 22, color: colors.text },
   reactions: { flexDirection: "row", gap: spacing.sm, padding: spacing.screen, borderTopWidth: 1, borderTopColor: colors.border },
   reactionWrap: { flex: 1, alignItems: "center" },
   reaction: { alignSelf: "stretch", alignItems: "center", justifyContent: "center", minHeight: 44, paddingHorizontal: spacing.xs, paddingVertical: spacing.xs, borderRadius: radius.card, borderWidth: 1.5, borderColor: colors.border },
   reactionOn: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-  reactionText: { fontSize: 13, lineHeight: 16, fontWeight: "700", color: colors.text, textAlign: "center" },
+  reactionText: { fontSize: 13, fontFamily: fonts.bold, lineHeight: 16, color: colors.text, textAlign: "center" },
   reactionTextOn: { color: colors.accent },
-  plusOne: { position: "absolute", top: -6, fontSize: 14, fontWeight: "800", color: colors.accent },
+  plusOne: { position: "absolute", top: -6, fontSize: 14, fontFamily: fonts.bold, color: colors.accent },
 });

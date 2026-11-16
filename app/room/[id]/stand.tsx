@@ -8,7 +8,7 @@ import { StanceSlider } from "../../../src/components/StanceSlider";
 import { useRoom, useSetPositionAfter } from "../../../src/data";
 import { errorMessage } from "../../../src/errors";
 import { useSavedUserId } from "../../../src/session";
-import { colors, spacing, type } from "../../../src/theme";
+import { colors, fonts, spacing, type } from "../../../src/theme";
 
 // "Did minds move": one question after the chat ends, before "Here's what I heard".
 export default function WhereDoYouStandNow() {
@@ -30,7 +30,7 @@ export default function WhereDoYouStandNow() {
   if (!room || !userId || !me || !room.topic) {
     return (
       <SafeAreaView style={[styles.safe, styles.center]}>
-        {room === null ? <Text style={type.body}>Room not found.</Text> : <ActivityIndicator color={colors.accent} />}
+        {room === null ? <Text style={type.body}>Table not found.</Text> : <ActivityIndicator color={colors.accent} />}
       </SafeAreaView>
     );
   }
@@ -74,11 +74,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   center: { alignItems: "center", justifyContent: "center" },
   body: { flex: 1, padding: spacing.screen, paddingTop: spacing.xl, gap: spacing.lg },
-  muted: { fontSize: 16, lineHeight: 22, color: colors.muted },
+  muted: { fontSize: 16, fontFamily: fonts.regular, lineHeight: 22, color: colors.muted },
   footer: { padding: spacing.screen, gap: spacing.md },
-  error: { fontSize: 14, color: colors.error, textAlign: "center" },
+  error: { fontSize: 14, fontFamily: fonts.regular, color: colors.error, textAlign: "center" },
   skip: { alignSelf: "center" },
-  skipText: { fontSize: 16, fontWeight: "600", color: colors.accent },
+  skipText: { fontSize: 16, fontFamily: fonts.semibold, color: colors.accent },
 });
 
 export { RoomErrorBoundary as ErrorBoundary } from "../../../src/components/RoomErrorBoundary";

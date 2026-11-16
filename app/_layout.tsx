@@ -1,4 +1,13 @@
+// Import single weights so the bundle only ships the 7 font files we use
+import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
+import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
+import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
+import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
+import { Limelight_400Regular } from "@expo-google-fonts/limelight/400Regular";
+import { PlayfairDisplay_500Medium } from "@expo-google-fonts/playfair-display/500Medium";
+import { PlayfairDisplay_600SemiBold } from "@expo-google-fonts/playfair-display/600SemiBold";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { useFonts } from "expo-font";
 import { router, Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useEffect } from "react";
@@ -34,6 +43,18 @@ function OnboardFirst() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Limelight_400Regular,
+    PlayfairDisplay_500Medium,
+    PlayfairDisplay_600SemiBold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+  // Wait for the fonts (or fall back to system fonts if they fail to load)
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <DataProvider>
       <StatusBar style="dark" />

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
 import type { RoomMember } from "../data";
-import { colors, positionColor, radius, spacing } from "../theme";
+import { colors, fonts, positionColor, radius, spacing } from "../theme";
 
 const DROP_STAGGER_MS = 110;
 
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   member: { position: "absolute", width: 64, marginLeft: -32, alignItems: "center" },
   dot: { width: DOT, height: DOT, borderRadius: DOT / 2, borderWidth: 3, borderColor: colors.background },
   you: { borderColor: colors.accent },
-  name: { fontSize: 12, fontWeight: "600", color: colors.text, marginTop: 2 },
+  name: { fontSize: 12, fontFamily: fonts.semibold, color: colors.text, marginTop: 2 },
   ends: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md, marginHorizontal: -spacing.lg },
-  end: { fontSize: 13, fontWeight: "700", flexShrink: 1 },
+  end: { fontSize: 13, fontFamily: fonts.bold, flexShrink: 1 },
 });

@@ -10,11 +10,11 @@ import { StanceSlider } from "../../src/components/StanceSlider";
 import { type RoomMode, useFeed, useJoinRoom, useNextRoom, useSetStance, useTopicStats } from "../../src/data";
 import { formatTime, pacificDate, todayString } from "../../src/date";
 import { useSavedUserId } from "../../src/session";
-import { colors, radius, spacing, type } from "../../src/theme";
+import { colors, fonts, radius, spacing, type } from "../../src/theme";
 
 const OPTIONS: { mode: RoomMode; title: string; subtitle: string }[] = [
-  { mode: "duo", title: "1-on-1", subtitle: "Talk with one person who sees it differently" },
-  { mode: "group", title: "Group", subtitle: "Up to 6 people across the spectrum" },
+  { mode: "duo", title: "Pull up a chair: 1-on-1", subtitle: "A table for two with someone who sees it differently" },
+  { mode: "group", title: "Pull up a chair: group", subtitle: "A table of up to 6 across the spectrum" },
 ];
 
 function JoinOption({
@@ -46,7 +46,7 @@ function JoinOption({
         <>
           <Text style={styles.optionTitle}>{option.title}</Text>
           <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
-          <Text style={styles.optionNext}>{next ? `${formatTime(next.slot)} room · ${next.joinedCount} joined` : " "}</Text>
+          <Text style={styles.optionNext}>{next ? `Next table ${formatTime(next.slot)} · ${next.joinedCount} at the table` : " "}</Text>
         </>
       )}
     </Pressable>
@@ -96,7 +96,7 @@ export default function TopicScreen() {
       const roomId = await joinRoom({ userId, topicId: id, mode });
       router.push(`/room/${roomId}`);
     } catch {
-      setError("Couldn't join the room. Try again.");
+      setError("Couldn't get you a seat. Try again.");
     } finally {
       setJoining(null);
     }
@@ -116,9 +116,7 @@ export default function TopicScreen() {
         <BackButton />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[type.label, topic.isShared && { color: colors.accent }]}>
-          {topic.isShared ? "Topic of the day" : topic.category.charAt(0).toUpperCase() + topic.category.slice(1)}
-        </Text>
+        <Text style={type.category}>{topic.isShared ? "The house table" : topic.category}</Text>
         <Text style={type.question}>{topic.question}</Text>
         <Text style={type.body}>{topic.brief}</Text>
 
@@ -178,12 +176,12 @@ const styles = StyleSheet.create({
   top: { paddingHorizontal: spacing.screen, paddingTop: spacing.sm, paddingBottom: spacing.sm },
   content: { paddingHorizontal: spacing.screen, paddingBottom: spacing.xl, gap: spacing.md },
   side: { borderRadius: radius.card, padding: spacing.lg, gap: spacing.sm },
-  sideName: { fontSize: 17, fontWeight: "800" },
-  sources: { fontSize: 13, color: colors.muted },
+  sideName: { fontSize: 17, fontFamily: fonts.bold },
+  sources: { fontSize: 13, fontFamily: fonts.regular, color: colors.muted },
   take: { gap: spacing.md, marginTop: spacing.md },
   savedRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  saved: { fontSize: 14, color: colors.muted },
-  change: { fontSize: 14, fontWeight: "600", color: colors.accent },
+  saved: { fontSize: 14, fontFamily: fonts.regular, color: colors.muted },
+  change: { fontSize: 14, fontFamily: fonts.semibold, color: colors.accent },
   footer: { padding: spacing.screen, paddingTop: spacing.sm, gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
   option: {
     backgroundColor: colors.accent,
@@ -197,8 +195,8 @@ const styles = StyleSheet.create({
   },
   optionDisabled: { opacity: 0.4 },
   optionPressed: { opacity: 0.85 },
-  optionTitle: { color: colors.onAccent, fontSize: 17, fontWeight: "700" },
-  optionSubtitle: { color: colors.onAccent, fontSize: 14, textAlign: "center", opacity: 0.9 },
-  optionNext: { color: colors.onAccent, fontSize: 13, fontWeight: "600", opacity: 0.75, fontVariant: ["tabular-nums"] },
-  error: { fontSize: 15, color: colors.error, textAlign: "center" },
+  optionTitle: { color: colors.onAccent, fontSize: 17, fontFamily: fonts.display },
+  optionSubtitle: { color: colors.onAccent, fontSize: 14, fontFamily: fonts.regular, textAlign: "center", opacity: 0.9 },
+  optionNext: { color: colors.onAccent, fontSize: 13, fontFamily: fonts.semibold, opacity: 0.75, fontVariant: ["tabular-nums"] },
+  error: { fontSize: 15, fontFamily: fonts.regular, color: colors.error, textAlign: "center" },
 });

@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text } from "react-native";
 
-import { colors, radius, spacing } from "../theme";
+import { colors, fonts, radius, spacing } from "../theme";
 
 type Props = { label: string; selected: boolean; onPress?: () => void };
 
@@ -25,9 +25,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1.5,
     borderColor: colors.border,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   selected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-  text: { fontSize: 16, fontWeight: "600", color: colors.text },
+  text: { fontSize: 16, fontFamily: fonts.semibold, color: colors.text },
   selectedText: { color: colors.accent },
 });

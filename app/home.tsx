@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Bell } from "../src/components/Bell";
+import { Button } from "../src/components/Button";
 import { Eye } from "../src/components/Eye";
 import { ProfileButton } from "../src/components/ProfileButton";
 import { SplitBar } from "../src/components/SplitBar";
@@ -10,22 +11,42 @@ import { Trophy } from "../src/components/Trophy";
 import { type Topic, useFeed, useNextRoom, useNotifications, useTopicStats, useUser } from "../src/data";
 import { formatTime, pacificDate } from "../src/date";
 import { clearUserId, useSavedUserId } from "../src/session";
-import { card, colors, spacing, type } from "../src/theme";
+import { card, colors, fonts, spacing, type } from "../src/theme";
+
+// The shared topic: a deep green card with a brass border
+function HouseTableCard({ topic }: { topic: Topic }) {
+  const stats = useTopicStats(topic._id);
+  const next = useNextRoom(topic._id);
+  const open = () => router.push(`/topic/${topic._id}`);
+  return (
+    <Pressable onPress={open} style={({ pressed }) => [card, styles.card, styles.house, pressed && styles.pressed]}>
+      <Text style={[type.category, styles.houseLabel]}>The house table</Text>
+      <Text style={[styles.question, styles.houseQuestion]}>{topic.question}</Text>
+      <SplitBar stats={stats} sideA={topic.sideA} sideB={topic.sideB} onDark />
+      <View style={styles.password}>
+        <Text style={styles.passwordLabel}>Next table</Text>
+        <Text style={styles.passwordValue}>
+          {next ? `${formatTime(next.slot)} · ${next.joinedCount} at the table` : " "}
+        </Text>
+      </View>
+      <Button title="Pull up a chair" variant="feature" onPress={open} />
+    </Pressable>
+  );
+}
 
 function TopicCard({ topic }: { topic: Topic }) {
   const stats = useTopicStats(topic._id);
   const next = useNextRoom(topic._id);
+  if (topic.isShared) return <HouseTableCard topic={topic} />;
   return (
     <Pressable
       onPress={() => router.push(`/topic/${topic._id}`)}
-      style={({ pressed }) => [card, styles.card, topic.isShared && styles.shared, pressed && styles.pressed]}
+      style={({ pressed }) => [card, styles.card, pressed && styles.pressed]}
     >
-      <Text style={[type.label, topic.isShared && styles.sharedLabel]}>
-        {topic.isShared ? "Topic of the day" : topic.category.charAt(0).toUpperCase() + topic.category.slice(1)}
-      </Text>
+      <Text style={type.category}>{topic.category}</Text>
       <Text style={styles.question}>{topic.question}</Text>
       <SplitBar stats={stats} sideA={topic.sideA} sideB={topic.sideB} />
-      <Text style={styles.next}>{next ? `Next room ${formatTime(next.slot)} · ${next.joinedCount} joined` : " "}</Text>
+      <Text style={styles.next}>{next ? `Next table ${formatTime(next.slot)} · ${next.joinedCount} at the table` : " "}</Text>
     </Pressable>
   );
 }
@@ -49,6 +70,7 @@ export default function Home() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <View style={styles.flex}>
+            <Text style={styles.wordmark}>speak-easy</Text>
             <Text style={type.label}>{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</Text>
             <Text style={type.question}>{user ? `${greeting}, ${user.name}` : greeting}</Text>
           </View>
@@ -78,11 +100,24 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginBottom: spacing.sm },
   flex: { flex: 1, gap: spacing.xs },
   card: { gap: spacing.md },
-  shared: { borderColor: colors.accent, borderWidth: 1.5 },
-  sharedLabel: { color: colors.accent },
+  wordmark: { fontFamily: fonts.wordmark, fontSize: 28, lineHeight: 34, color: colors.feature },
+  house: { backgroundColor: colors.feature, borderColor: colors.accent, borderWidth: 1 },
+  houseLabel: { color: colors.featureAccent },
+  houseQuestion: { color: colors.featureText },
+  password: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderTopWidth: 0.5,
+    borderBottomWidth: 0.5,
+    borderColor: colors.featureAccent,
+    paddingVertical: spacing.sm,
+  },
+  passwordLabel: { ...type.category, color: colors.featureAccent },
+  passwordValue: { fontSize: 14, fontFamily: fonts.medium, color: colors.featureText },
   pressed: { opacity: 0.8 },
-  question: { fontSize: 22, lineHeight: 28, fontWeight: "700", color: colors.text },
-  next: { fontSize: 14, color: colors.muted, fontWeight: "500" },
-  muted: { fontSize: 16, color: colors.muted },
+  question: { fontSize: 22, fontFamily: fonts.display, lineHeight: 28, color: colors.text },
+  next: { fontSize: 14, fontFamily: fonts.medium, color: colors.muted },
+  muted: { fontSize: 16, fontFamily: fonts.regular, color: colors.muted },
   startOver: { alignSelf: "center", paddingVertical: spacing.lg },
 });

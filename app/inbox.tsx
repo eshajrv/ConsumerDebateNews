@@ -6,7 +6,7 @@ import { type AppNotification, useMarkAllRead, useMarkRead, useNotifications } f
 import { formatTime } from "../src/date";
 import { openLink } from "../src/links";
 import { useSavedUserId } from "../src/session";
-import { colors, radius, spacing, type } from "../src/theme";
+import { colors, fonts, radius, spacing, type } from "../src/theme";
 
 function when(ms: number) {
   const mins = Math.floor((Date.now() - ms) / 60_000);
@@ -79,18 +79,18 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
   },
-  markAll: { fontSize: 15, fontWeight: "600", color: colors.accent },
+  markAll: { fontSize: 15, fontFamily: fonts.semibold, color: colors.accent },
   loading: { marginTop: spacing.xl },
   list: { padding: spacing.screen, gap: spacing.sm },
-  empty: { fontSize: 16, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
+  empty: { fontSize: 16, fontFamily: fonts.regular, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.md, borderRadius: radius.card, borderWidth: 1, borderColor: colors.border },
   unread: { backgroundColor: colors.accentSoft, borderColor: colors.accentSoft },
   pressed: { opacity: 0.8 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
   dotRead: { backgroundColor: "transparent" },
   flex: { flex: 1, gap: 2 },
-  message: { fontSize: 16, lineHeight: 22, color: colors.text },
-  messageUnread: { fontWeight: "700" },
-  time: { fontSize: 13, color: colors.muted },
-  chevron: { fontSize: 24, color: colors.muted },
+  message: { fontSize: 16, fontFamily: fonts.regular, lineHeight: 22, color: colors.text },
+  messageUnread: { fontFamily: fonts.bold },
+  time: { fontSize: 13, fontFamily: fonts.regular, color: colors.muted },
+  chevron: { fontSize: 24, fontFamily: fonts.regular, color: colors.muted },
 });

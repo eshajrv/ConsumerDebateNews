@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { type Id, useMarkRead, useNotifications } from "../data";
 import { openLink } from "../links";
 import { useSavedUserId } from "../session";
-import { colors, radius, spacing } from "../theme";
+import { colors, fonts, radius, spacing } from "../theme";
 
 const SHOW_MS = 6000;
 
@@ -79,6 +79,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
-  text: { flex: 1, fontSize: 16, fontWeight: "600", color: colors.text },
-  close: { fontSize: 22, lineHeight: 22, color: colors.muted },
+  text: { flex: 1, fontSize: 16, fontFamily: fonts.semibold, color: colors.text },
+  close: { fontSize: 22, fontFamily: fonts.regular, lineHeight: 22, color: colors.muted },
 });

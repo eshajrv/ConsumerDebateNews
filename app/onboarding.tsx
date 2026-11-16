@@ -8,7 +8,7 @@ import { Chip } from "../src/components/Chip";
 import { type Interest, type NotifyVia, useOnboard } from "../src/data";
 import { afterOnboarding } from "../src/links";
 import { saveUserId } from "../src/session";
-import { colors, radius, spacing, type } from "../src/theme";
+import { colors, fonts, radius, spacing, type } from "../src/theme";
 
 const PRACTIFY_NUMBER = "+17796251378";
 const SMS_BODY = "Hey Practify, I'd like to get my morning news feed setup. (K-T3JFHD)";
@@ -22,8 +22,8 @@ const INTERESTS: { value: Interest; label: string }[] = [
 ];
 
 const REACH: { value: NotifyVia; label: string; hint: string }[] = [
-  { value: "app", label: "In the app", hint: "Nudges land in your Practify inbox." },
-  { value: "text", label: "By text", hint: "Our agent texts you the feed and room links." },
+  { value: "app", label: "In the app", hint: "Nudges land in your speak-easy inbox." },
+  { value: "text", label: "By text", hint: "Our host texts you the feed and table links." },
 ];
 
 export default function Onboarding() {
@@ -93,9 +93,9 @@ export default function Onboarding() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.body}>
-          <Text style={type.question}>Last step: say hi to Practify 👋</Text>
+          <Text style={type.question}>Last step: say hi to speak-easy 👋</Text>
           <Text style={styles.hint}>
-            Send one text to turn on your 8 AM feed. You can reply to it anytime to share your take and join rooms.
+            Send one text to turn on your 8 AM feed. You can reply to it anytime to share your take and pull up a chair.
           </Text>
           {smsFailed && (
             <Text style={styles.fallback} selectable>
@@ -214,7 +214,7 @@ export default function Onboarding() {
           />
           {step === 0 && (
             <Pressable onPress={() => router.push("/join")} hitSlop={12} style={styles.codeLink}>
-              <Text style={styles.back}>Have a code?</Text>
+              <Text style={styles.back}>Have a password?</Text>
             </Pressable>
           )}
         </View>
@@ -227,11 +227,12 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: spacing.screen, paddingTop: spacing.md, minHeight: 40 },
-  back: { fontSize: 16, fontWeight: "600", color: colors.accent },
+  back: { fontSize: 16, fontFamily: fonts.semibold, color: colors.accent },
   body: { flex: 1, paddingHorizontal: spacing.screen, paddingTop: spacing.xl, gap: spacing.lg },
-  hint: { fontSize: 15, lineHeight: 21, color: colors.muted },
+  hint: { fontSize: 15, fontFamily: fonts.regular, lineHeight: 21, color: colors.muted },
   input: {
     fontSize: 20,
+    fontFamily: fonts.regular,
     color: colors.text,
     backgroundColor: colors.surface,
     borderRadius: radius.card,
@@ -243,10 +244,10 @@ const styles = StyleSheet.create({
   options: { gap: spacing.md },
   option: { borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.card, padding: spacing.lg, gap: spacing.xs },
   optionSelected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-  optionLabel: { fontSize: 18, fontWeight: "700", color: colors.text },
+  optionLabel: { fontSize: 18, fontFamily: fonts.bold, color: colors.text },
   optionLabelSelected: { color: colors.accent },
   footer: { padding: spacing.screen, gap: spacing.md },
-  fallback: { ...type.body, fontWeight: "600" },
-  error: { fontSize: 15, color: colors.error, textAlign: "center" },
+  fallback: { ...type.body, fontFamily: fonts.semibold },
+  error: { fontSize: 15, fontFamily: fonts.regular, color: colors.error, textAlign: "center" },
   codeLink: { alignSelf: "center" },
 });
