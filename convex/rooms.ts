@@ -228,7 +228,13 @@ export const get = query({
   handler: async (ctx, { roomId }) => {
     const room = await ctx.db.get(roomId);
     if (!room) return null;
-    const [topic, members] = await Promise.all([ctx.db.get(room.topicId), activeMembers(ctx, roomId)]);
+    const [topic, members] = await Promise.all([
+      ctx.db.get(room.topicId),
+      ctx.db
+        .query("roomMembers")
+        .withIndex("by_room", (q) => q.eq("roomId", roomId))
+        .collect(),
+    ]);
     return {
       ...room,
       topic,
@@ -241,6 +247,7 @@ export const get = query({
           circleOrder: m.circleOrder,
           summarizesUserId: m.summarizesUserId,
           movedToRoomId: m.movedToRoomId,
+          leftAt: m.leftAt ?? null,
         })),
       ),
     };
@@ -558,24 +565,53 @@ export const flagMessage = internalMutation({
 // Time's up: build the summary circle and have the judge close
 export const end = internalMutation({
   args: { roomId: v.id("rooms") },
-  handler: async (ctx, { roomId }) => {
+  handler: async (ctx, { roomId }) => endRoom(ctx, roomId),
+});
+
+// Time's up (or too few people left): build the summary circle and have the judge close
+async function endRoom(ctx: MutationCtx, roomId: Id<"rooms">) {
+  const room = await ctx.db.get(roomId);
+  if (!room || room.status !== "live") return;
+  await ctx.db.patch(roomId, { status: "summarizing" });
+  const circle = await activeMembers(ctx, roomId);
+  for (let i = circle.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [circle[i], circle[j]] = [circle[j], circle[i]];
+  }
+  for (let i = 0; circle.length >= 2 && i < circle.length; i++) {
+    await ctx.db.patch(circle[i]._id, {
+      circleOrder: i,
+      summarizesUserId: circle[(i + 1) % circle.length].userId,
+    });
+  }
+  await ctx.scheduler.runAfter(0, internal.rooms.writeClosing, { roomId });
+  await ctx.scheduler.runAfter(0, internal.ai.rateRoomCivility, { roomId });
+  await ctx.scheduler.runAfter(0, internal.rooms.estimateEndPositions, { roomId });
+}
+
+// Leave a live room early. Costs 10 points and 5 good-faith; ends the room if fewer than 2 remain.
+export const leave = mutation({
+  args: { roomId: v.id("rooms"), userId: v.id("users") },
+  handler: async (ctx, { roomId, userId }) => {
     const room = await ctx.db.get(roomId);
-    if (!room || room.status !== "live") return;
-    await ctx.db.patch(roomId, { status: "summarizing" });
-    const circle = await activeMembers(ctx, roomId);
-    for (let i = circle.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [circle[i], circle[j]] = [circle[j], circle[i]];
-    }
-    for (let i = 0; i < circle.length; i++) {
-      await ctx.db.patch(circle[i]._id, {
-        circleOrder: i,
-        summarizesUserId: circle[(i + 1) % circle.length].userId,
+    if (!room || room.status !== "live") throw new ConvexError("You can only leave a room while the chat is live.");
+    const member = await ctx.db
+      .query("roomMembers")
+      .withIndex("by_room_and_user", (q) => q.eq("roomId", roomId).eq("userId", userId))
+      .unique();
+    if (!member || member.left) throw new ConvexError("You're not in this room.");
+
+    await ctx.db.patch(member._id, { left: true, leftAt: Date.now() });
+    const user = await ctx.db.get(userId);
+    if (user) {
+      await ctx.db.patch(userId, {
+        totalPoints: Math.max(0, (user.totalPoints ?? 0) - 10),
+        goodFaithScore: Math.max(0, user.goodFaithScore - 5),
       });
     }
-    await ctx.scheduler.runAfter(0, internal.rooms.writeClosing, { roomId });
-    await ctx.scheduler.runAfter(0, internal.ai.rateRoomCivility, { roomId });
-    await ctx.scheduler.runAfter(0, internal.rooms.estimateEndPositions, { roomId });
+    await ctx.db.insert("roomMessages", { roomId, kind: "left", text: `${user?.name ?? "Someone"} left the room.` });
+
+    if ((await activeMembers(ctx, roomId)).length < 2) await endRoom(ctx, roomId);
   },
 });
 
@@ -643,7 +679,10 @@ little or nothing, or never signaled a change, keep their start position.
 Give a one-line, neutral reason (no judgement of who is right).
 
 ${d.members
-  .map((m, i) => `Person ${i + 1}: started at ${m.position}\n${m.messages.length ? m.messages.map((t) => `- ${t}`).join("\n") : "(wrote nothing)"}`)
+  .map(
+    (m, i) =>
+      `Person ${i + 1}: started at ${m.position}\n${m.messages.length ? m.messages.map((t) => `- ${t}`).join("\n") : "(wrote nothing)"}`,
+  )
   .join("\n\n")}
 
 Return ONLY JSON like {"1": {"position": 40, "reason": "..."}, "2": {...}} for persons ${d.members.map((_, i) => i + 1).join(", ")}.`;
@@ -654,7 +693,13 @@ Return ONLY JSON like {"1": {"position": 40, "reason": "..."}, "2": {...}} for p
       const e = r[String(i + 1)];
       const n = Number(e?.position);
       if (!Number.isFinite(n)) return [];
-      return [{ userId: m.userId, position: Math.max(0, Math.min(100, Math.round(n))), reason: String(e.reason ?? "").slice(0, 200) }];
+      return [
+        {
+          userId: m.userId,
+          position: Math.max(0, Math.min(100, Math.round(n))),
+          reason: String(e.reason ?? "").slice(0, 200),
+        },
+      ];
     });
   } catch (e) {
     console.log(`Position estimate (${stage}) failed: ${(e as Error).message}`);
