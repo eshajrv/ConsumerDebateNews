@@ -28,8 +28,8 @@ const MIN_TO_START = { duo: 2, group: 2 };
 type Mode = "duo" | "group";
 export const modeValidator = v.union(v.literal("duo"), v.literal("group"));
 const modeOf = (room: Doc<"rooms">): Mode => room.mode ?? "group";
-const MIN_SPREAD = 40;
-const ROOM_MS = 10 * MINUTE;
+const MIN_SPREAD = 30;
+const ROOM_MS = 5 * MINUTE;
 const NUDGE_MS = 4 * MINUTE;
 
 const slotMinutes = () => {
@@ -150,6 +150,8 @@ async function placeInRoom(
     band,
     allowSpectators: args.allowSpectators,
   });
+  // Open the table as soon as the right people are seated, instead of waiting for the slot
+  await ctx.scheduler.runAfter(0, internal.rooms.checkStart, { roomId, early: true });
   return roomId;
 }
 
@@ -367,8 +369,8 @@ export const remind = internalMutation({
 });
 
 export const checkStart = internalMutation({
-  args: { roomId: v.id("rooms") },
-  handler: async (ctx, { roomId }) => {
+  args: { roomId: v.id("rooms"), early: v.optional(v.boolean()) },
+  handler: async (ctx, { roomId, early }) => {
     const room = await ctx.db.get(roomId);
     if (!room || room.status !== "waiting") return;
     const members = await activeMembers(ctx, roomId);
@@ -390,6 +392,8 @@ export const checkStart = internalMutation({
       await ctx.scheduler.runAt(endsAt, internal.rooms.end, { roomId });
       return;
     }
+    // A seat-time check that isn't ready yet keeps waiting; only the slot-time check rolls the table
+    if (early) return;
 
     const slotStart = nextSlot(Math.max(Date.now(), room.slotStart));
     const movedCount = new Map<Id<"rooms">, number>();
